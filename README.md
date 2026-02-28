@@ -20,173 +20,242 @@
 
 </div>
 
+<br>
+
+```mermaid
+graph LR
+    subgraph Input["あなたのコード"]
+        A1["Vue / React / Svelte\nNode / Go / Rust / Python"]
+    end
+
+    subgraph Engine["Web Anomaly Detector"]
+        direction TB
+        B1["140 Patterns\n3 Categories × 10 Layers"] --> B2["18 QAP\nQuantitative Parameters"]
+        B2 --> B3["LLM Verify\nQwen3-Coder-Next"]
+    end
+
+    subgraph Output["レポート"]
+        C1["Overall: 0.64 WARNING\nCRITICAL 2 / WARNING 5\nconfidence 0.84"]
+    end
+
+    Input --> Engine --> Output
+
+    style Input fill:#1e3a5f,stroke:#3b82f6,color:#e2e8f0
+    style Engine fill:#2d1b69,stroke:#8b5cf6,color:#e2e8f0
+    style Output fill:#4a1d1d,stroke:#ef4444,color:#e2e8f0
+```
+
 ---
 
-## なぜ必要なのか — 既存ツールが見逃す領域
+## なぜ必要か — 既存ツールの死角
 
-あなたのプロジェクトには **ESLint がパスし、TypeScript がコンパイルし、テストが通る** のに **本番で壊れる** コードがある。
+```mermaid
+graph TB
+    subgraph Tools["既存ツール"]
+        ESLint["ESLint\n構文 + ルール"]
+        TS["TypeScript\n型の整合"]
+        Test["テスト\n入出力の対応"]
+    end
 
+    subgraph Gap["検出できない領域"]
+        G1["空の catch — エラー握り潰し"]
+        G2["型と実装の乖離"]
+        G3["認証なし API"]
+        G4["mutation 後の再取得漏れ"]
+        G5["addEventListener 解除忘れ"]
+        G6["ハードコード API キー"]
+        G7["月の 0-indexing バグ"]
+    end
+
+    subgraph WAD["Web Anomaly Detector"]
+        W1["L2 EHD = 0.30"]
+        W2["L1 CFR = 0.60"]
+        W3["L7 AGC = 0.70"]
+        W4["L10 ARR = 0.55"]
+        W5["L8 MLS = 0.40"]
+        W6["L7 SEC = 3"]
+        W7["L9 ITCR = 5"]
+    end
+
+    Tools -.->|"見逃す"| Gap
+    Gap -->|"数値化"| WAD
+
+    style Tools fill:#374151,stroke:#6b7280,color:#9ca3af
+    style Gap fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
+    style WAD fill:#14532d,stroke:#22c55e,color:#bbf7d0
 ```
-                          ESLint     TypeScript    テスト      本スキル
-                          ───────    ──────────    ──────      ────────
-空の catch ブロック          ⚠ 設定次第   ✗            ✗          ✓ L2 EHD
-型定義と実装の乖離           ✗          ✗ 実行時型    ✗          ✓ L1 CFR
-認証なしの API エンドポイント ✗          ✗            ✗ テスト次第 ✓ L7 AGC
-mutation 後の再取得漏れ      ✗          ✗            ✗          ✓ L10 ARR
-addEventListener の解除忘れ  ✗          ✗            ✗          ✓ L8 MLS
-ハードコードされた API キー   ✗          ✗            ✗          ✓ L7 SEC
-月の 0-indexing バグ         ✗          ✗            ✗ テスト次第 ✓ L9 ITCR
-```
 
-**本スキルの守備範囲は「開発者の感覚では何となく不安だが、既存ツールでは検出できない」領域に特化している。**
+**ESLint がパスし、TypeScript がコンパイルし、テストが通る** のに **本番で壊れる** コード。
+それが本スキルの守備範囲。
 
 ---
 
 ## Quick Start
 
-**1. インストール** (git clone するだけ):
-
 ```bash
+# 1. インストール (git clone するだけ)
 git clone https://github.com/ohyesiamy/web-anomaly-detector.git \
   ~/.claude/skills/web-anomaly-detector
+
+# 2. Claude Code に話しかけるだけ
 ```
 
-**2. 使う** (Claude Code に話しかけるだけ):
+```mermaid
+graph LR
+    U["「違和感を探して」"] --> Auto["スタック自動検出\nVue? React? Go?"]
+    Auto --> Scan["140パターン\n並列スキャン"]
+    Scan --> Report["スコア付き\nレポート出力"]
 
-```
-「このプロジェクトの違和感を探して」
-「システム監査して」
-「何かおかしいところはないか確認して」
-```
-
-スキルが自動ロードされ、プロジェクトのスタック (Vue, React, Svelte, Go, Rust ...) を検出し、
-140パターンで並列スキャンを開始する。
-
-**3. スコアだけ見たいとき** (高速モード):
-
-```
-/web-anomaly-detector:score           # 数値だけ (パターン検出なし)
-/web-anomaly-detector:score --verify  # LLM 検証付き
+    style U fill:#1e3a5f,stroke:#3b82f6,color:#e2e8f0
+    style Auto fill:#581c87,stroke:#a855f7,color:#f3e8ff
+    style Scan fill:#1a4731,stroke:#22c55e,color:#e2e8f0
+    style Report fill:#7c2d12,stroke:#f97316,color:#fff7ed
 ```
 
-**4. 検出→修正まで一気通貫で**:
-
 ```
-「アウフヘーベンして」
-「違和感を見つけて全部直して」
+「このプロジェクトの違和感を探して」     → フルスキャン
+「システム監査して」                     → フルスキャン
+/web-anomaly-detector:score             → スコアのみ (高速)
+/web-anomaly-detector:scan diff         → git diff のみ
+「アウフヘーベンして」                   → 検出 + 修正まで一気通貫
 ```
 
 ---
 
-## これが何を見つけるか — 実例
+## 検出例 — 4つの実例
 
 ### 例1: 空の catch ブロック (L2 サイレント失敗)
 
-```typescript
-// ESLint: パス  TypeScript: パス  テスト: パス
-// 本スキル: ✗ CRITICAL  EHD = 0.30  L2 サイレント失敗
-try {
-  const data = await fetch('/api/orders');
-  return await data.json();
-} catch (e) {
-  // TODO: handle error later
-}
-// → ネットワーク障害時にユーザーには空画面が表示される。
-//   エラーログも出ない。誰も気づかない。
+```mermaid
+graph LR
+    subgraph Before["現状"]
+        B1["try { fetch('/api/orders') }\ncatch(e) { /* TODO */ }"]
+    end
+    subgraph Problem["問題"]
+        P1["ネットワーク障害時\nユーザーに空画面\nエラーログなし\n誰も気づかない"]
+    end
+    subgraph Detect["検出結果"]
+        D1["CRITICAL\nL2 EHD = 0.30\nconfidence: 0.92"]
+    end
+
+    Before --> Problem --> Detect
+
+    style Before fill:#374151,stroke:#6b7280,color:#9ca3af
+    style Problem fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
+    style Detect fill:#581c87,stroke:#a855f7,color:#f3e8ff
 ```
 
-### 例2: 認証なし API エンドポイント (L7 セキュリティ)
+### 例2: 認証なし API (L7 セキュリティ)
 
-```typescript
-// 10個の API エンドポイントのうち 3個に認証がない
-// 本スキル: ✗ WARNING  AGC = 0.70  L7 セキュリティ
-export default defineEventHandler(async (event) => {
-  // ← getServerSession() がない
-  const users = await db.select().from(usersTable);
-  return users; // ← 全ユーザーデータが認証なしで公開
-});
+```mermaid
+graph LR
+    subgraph API["10 個の API エンドポイント"]
+        A1["GET /api/users ✓ 認証あり"]
+        A2["POST /api/users ✓ 認証あり"]
+        A3["GET /api/admin ✗ 認証なし"]
+        A4["DELETE /api/users ✗ 認証なし"]
+    end
+    subgraph Score["検出結果"]
+        S1["WARNING\nL7 AGC = 0.70\n3/10 エンドポイントが\n認証で保護されていない"]
+    end
+
+    API --> Score
+
+    style A3 fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
+    style A4 fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
+    style Score fill:#7c2d12,stroke:#f97316,color:#fff7ed
 ```
 
 ### 例3: ボタンを押しても何も起きない (L10 UI応答性)
 
-```vue
-<template>
-  <!-- 本スキル: ✗ WARNING  ARR = 0.55  L10 UI応答性 -->
-  <button @click="deleteItem(item.id)">削除</button>
-  <!-- ← loading 表示なし、成功/失敗フィードバックなし -->
-  <!-- ← リスト再取得なし → リロードしないと消えない -->
-</template>
+```mermaid
+sequenceDiagram
+    participant U as ユーザー
+    participant UI as 画面
+    participant API as サーバー
 
-<script setup>
-const deleteItem = async (id) => {
-  await $fetch(`/api/items/${id}`, { method: 'DELETE' });
-  // ← refreshNuxtData('items') がない
-  // ← toast やフィードバック UI がない
-};
-</script>
+    U->>UI: 「削除」ボタンクリック
+    UI->>API: DELETE /api/items/42
+    API-->>UI: 200 OK
+    Note over UI: ← ここで何も起きない
+    Note over UI: loading 表示なし
+    Note over UI: リスト更新なし
+    Note over UI: 成功メッセージなし
+    U->>U: 「...消えてない？」
+    U->>UI: ページリロード
+    Note over UI: やっとリストから消える
+
+    rect rgb(74, 29, 29)
+        Note over U,API: 検出: WARNING L10 ARR = 0.55
+    end
 ```
 
 ### 例4: addEventListener の解除忘れ (L8 信頼性)
 
-```typescript
-// 本スキル: ✗ WARNING  MLS = 0.40 (Symmetry)  L8 信頼性
-onMounted(() => {
-  window.addEventListener('resize', handleResize);
-  window.addEventListener('scroll', handleScroll);
-  const interval = setInterval(pollData, 5000);
-});
-// onUnmounted がない → メモリリーク
-// addEventListener: 2 / removeEventListener: 0 → MLS = 1.0 (異常)
+```mermaid
+graph LR
+    subgraph Open["開いた (onMounted)"]
+        O1["addEventListener('resize')"]
+        O2["addEventListener('scroll')"]
+        O3["setInterval(poll, 5000)"]
+    end
+    subgraph Close["閉じた (onUnmounted)"]
+        C1["なし"]
+    end
+    subgraph Leak["結果"]
+        L1["メモリリーク\nMLS = 1.0\n(3 open / 0 close)"]
+    end
+
+    Open -->|"対称性"| Close -->|"不均衡"| Leak
+
+    style Open fill:#14532d,stroke:#22c55e,color:#bbf7d0
+    style Close fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
+    style Leak fill:#7c2d12,stroke:#f97316,color:#fff7ed
 ```
 
 ---
 
-## 仕組み — 2-Stage Detection Pipeline
+## 検出パイプライン — 2-Stage Architecture
 
 ```mermaid
-graph LR
-    A["SCOPE\n対象特定\nスタック自動検出"] --> B["MEASURE\n18 QAP 計測\ngrep/glob 並列"]
-    B --> C["VERIFY\nLLM 偽陽性除去\nQwen3-Coder-Next"]
-    C --> D["TRIAGE\nCRITICAL / WARNING / INFO"]
-    D --> E["REPORT\nスコア + 根拠付き"]
+graph TB
+    subgraph S1["Stage 1: grep/glob — 金属探知機"]
+        direction LR
+        A["Agent A\nGhost\nL1-L4, L10"]
+        B["Agent B\nFragile\nL5-L8"]
+        C["Agent C\nBlind Spot\nL9"]
+    end
 
-    style A fill:#1e3a5f,stroke:#3b82f6,color:#e2e8f0
-    style B fill:#1a4731,stroke:#22c55e,color:#e2e8f0
-    style C fill:#581c87,stroke:#a855f7,color:#e2e8f0
-    style D fill:#7c2d12,stroke:#f97316,color:#e2e8f0
-    style E fill:#374151,stroke:#9ca3af,color:#f9fafb
+    subgraph S2["Stage 2: LLM — 鑑定士"]
+        direction LR
+        D["LM Studio\nQwen3-Coder-Next\nlocalhost:1234"]
+        E["confidence\nscoring"]
+    end
+
+    subgraph S3["Optional: DOM 検証"]
+        F["agent-browser\nclick → snapshot diff"]
+    end
+
+    S1 -->|"候補リスト\n0 tokens"| S2
+    S2 -->|"偽陽性除去"| G["REPORT\nOverall: 0.64 WARNING"]
+    S1 -.->|"L10 候補あり\n+ アプリ起動中"| S3
+    S3 -.->|"JSON report"| G
+
+    style S1 fill:#1e3a5f,stroke:#3b82f6,color:#e2e8f0
+    style S2 fill:#581c87,stroke:#a855f7,color:#f3e8ff
+    style S3 fill:#374151,stroke:#6b7280,color:#9ca3af
+    style G fill:#14532d,stroke:#22c55e,color:#bbf7d0
 ```
 
-### Stage 1: grep/glob — 金属探知機 (0 tokens, 数秒)
+| Stage | 動作 | トークン消費 | 速度 |
+|:---:|:---|:---:|:---:|
+| **Stage 1** | 3 Explore エージェントが 140 パターンを並列 grep | **0** | ~5s |
+| **Stage 2** | Qwen3-Coder-Next が偽陽性を除去 + confidence 付与 | **最小限** (ローカル) | ~20s |
+| **DOM** | agent-browser が実際にクリック → accessibility diff | **0** | ~200ms/要素 |
 
-3つの Explore エージェントが並列起動し、140パターンを一斉スキャン:
-
-| エージェント | 担当 | レイヤー | QAP |
-|:---|:---|:---|:---|
-| **Agent A** | Ghost (動かないもの) | L1-L4, L10 | CFR, EHD, ESR, HLR, RRR, ARR |
-| **Agent B** | Fragile (壊れやすいもの) | L5-L8 | NCI, CSS, TCR, AGC, SEC, RPC, MLS, GSS |
-| **Agent C** | Blind Spot (見えないリスク) | L9 | TSI, ITCR, BVG, DFS |
-
-**この段階では LLM トークンを一切消費しない。** grep/glob のパターンマッチのみ。
-
-### Stage 2: LLM — 鑑定士 (最小限 tokens)
-
-Stage 1 の候補を Qwen3-Coder-Next (LM Studio, localhost) に送り、偽陽性を除去:
-
-- `lm-studio-ensure.sh` がサーバー起動→モデルロード→ヘルスチェックを**全自動**
-- LM Studio 未インストール時は **自動で grep-only にフォールバック** (非ブロッキング)
-- 各マッチに `confidence` スコア (0.0-1.0) を付与し、QAP を補正
-
-### Optional: DOM 検証 — ブラウザで実証 (0 Claude tokens)
-
-L10 (UI応答性) の検出時、アプリが起動中なら `dom-verify.sh` が agent-browser で:
-
-1. 対象ページへナビゲート
-2. accessibility snapshot でインタラクティブ要素を列挙
-3. 各要素をクリック → 500ms 待機 → snapshot diff
-4. 変化なし = unresponsive candidate として JSON レポート出力
-
-**Lazy 起動**: grep 候補あり + アプリ起動中 の両条件を満たしたときのみ実行。
+- **LM Studio 自動化**: `lm-studio-ensure.sh` がサーバー起動→モデルロード→ヘルスチェックを**全自動**
+- **フォールバック**: LM Studio 未インストール → 自動で grep-only (非ブロッキング)
+- **データ送信先**: なし。全て localhost で完結
 
 ---
 
@@ -194,65 +263,95 @@ L10 (UI応答性) の検出時、アプリが起動中なら `dom-verify.sh` が
 
 ```mermaid
 graph TB
-    Q["何かおかしい..."] --> G
-    Q --> F
-    Q --> B
+    Q["何かおかしい..."] --> G["Ghost 👻\n動かないもの"]
+    Q --> F["Fragile 🔨\n壊れやすいもの"]
+    Q --> B["Blind Spot 🕳️\n見えないリスク"]
 
-    G["Ghost\n動くの？"] --> G1["L1 契約不一致\nL2 サイレント失敗\nL3 状態同期バグ\nL4 死んだ機能\nL10 UI応答性"]
-    F["Fragile\n壊れない？"] --> F1["L5 構造矛盾\nL6 リソース浪費\nL7 セキュリティ\nL8 信頼性リスク"]
-    B["Blind Spot\n見えてる？"] --> B1["L9 暗黙知の罠\n12ドメイン 32パターン"]
+    G --> L1["L1 契約不一致\n型と実装のズレ"]
+    G --> L2["L2 サイレント失敗\nエラー握り潰し"]
+    G --> L3["L3 状態同期バグ\nemit/on 不一致"]
+    G --> L4["L4 死んだ機能\nTODO ハンドラ"]
+    G --> L10["L10 UI応答性\n操作後に無反応"]
+
+    F --> L5["L5 構造矛盾\n設定の不整合"]
+    F --> L6["L6 リソース浪費\nN+1, 巨大payload"]
+    F --> L7["L7 セキュリティ\nOWASP 2025"]
+    F --> L8["L8 信頼性\nSRE パターン"]
+
+    B --> L9["L9 暗黙知の罠\n12ドメイン 32パターン"]
 
     style Q fill:#374151,stroke:#9ca3af,color:#f9fafb
     style G fill:#581c87,stroke:#a855f7,color:#f3e8ff
     style F fill:#7c2d12,stroke:#f97316,color:#fff7ed
     style B fill:#1e3a5f,stroke:#3b82f6,color:#eff6ff
+    style L1 fill:#3b1f6e,stroke:#a855f7,color:#e9d5ff
+    style L2 fill:#3b1f6e,stroke:#a855f7,color:#e9d5ff
+    style L3 fill:#3b1f6e,stroke:#a855f7,color:#e9d5ff
+    style L4 fill:#3b1f6e,stroke:#a855f7,color:#e9d5ff
+    style L10 fill:#3b1f6e,stroke:#a855f7,color:#e9d5ff
+    style L5 fill:#5c2610,stroke:#f97316,color:#fed7aa
+    style L6 fill:#5c2610,stroke:#f97316,color:#fed7aa
+    style L7 fill:#5c2610,stroke:#f97316,color:#fed7aa
+    style L8 fill:#5c2610,stroke:#f97316,color:#fed7aa
+    style L9 fill:#172554,stroke:#3b82f6,color:#bfdbfe
 ```
 
 ### Ghost — 動かないもの
 
-ユーザーから見て「機能が動いていない」状態。コードはあるのに、期待通りに動作しない。
+ユーザーから見て「機能が動いていない」。コードはあるのに、期待通りに動作しない。
 
-| Layer | 検出対象 | 例 | QAP |
+| Layer | 何を見つけるか | アナロジー | QAP |
 |:---|:---|:---|:---|
-| **L1** 契約不一致 | 型定義と実行時データのズレ | `interface User { email: string }` だが API は `mail` を返す | **CFR** |
-| **L2** サイレント失敗 | エラーを飲み込む catch | `catch(e) {}` — ユーザーには何も表示されない | **EHD** |
-| **L3** 状態同期バグ | emit/on の不一致 | `emit('user:updated')` だが `on('user:update')` で購読 | **ESR** |
-| **L4** 死んだ機能 | 宣言だけで中身のない機能 | `onClick={handleDelete}` だが `handleDelete` は TODO のみ | **HLR, RRR** |
-| **L10** UI応答性 | 操作後にUIが変化しない | 削除ボタン押下→リスト更新なし→リロードしないと消えない | **ARR** |
+| **L1** 契約不一致 | `interface User { email }` だが API は `mail` を返す | 地図にない道路 | **CFR** |
+| **L2** サイレント失敗 | `catch(e) {}` — エラーが闇に消える | 電池の抜けた火災報知器 | **EHD** |
+| **L3** 状態同期バグ | `emit('user:updated')` / `on('user:update')` | 留守番電話に話し続ける | **ESR** |
+| **L4** 死んだ機能 | `onClick={handleDelete}` が TODO のみ | 商品のないボタン | **HLR, RRR** |
+| **L10** UI応答性 | 削除押下→リスト更新なし→リロードで消える | 注文後に無言のウェイター | **ARR** |
 
 ### Fragile — 壊れやすいもの
 
-今は動いているが、変更・負荷・攻撃で容易に壊れる。
+今は動いている。変更・負荷・攻撃で容易に壊れる。
 
-| Layer | 検出対象 | 例 | QAP |
+| Layer | 何を見つけるか | アナロジー | QAP |
 |:---|:---|:---|:---|
-| **L5** 構造矛盾 | 設定の不整合 | API の base URL が `.env` と `config.ts` で異なる | **NCI, CSS** |
-| **L6** リソース浪費 | 不要な計算やリクエスト | N+1 クエリ、100KB の未使用 import、毎フレーム再計算 | — |
-| **L7** セキュリティ | OWASP 2025 Top 10 | 認証なしエンドポイント、ハードコード API キー、SQLi | **AGC, SEC** |
-| **L8** 信頼性リスク | SRE パターン違反 | タイムアウト未設定、リトライなし、addEventListener 解除忘れ | **TCR, RPC, MLS, GSS** |
+| **L5** 構造矛盾 | base URL が `.env` と `config.ts` で違う | 2つの時計が違う時刻 | **NCI, CSS** |
+| **L6** リソース浪費 | N+1 クエリ、100KB の未使用 import | 1品ずつレジに並ぶ | — |
+| **L7** セキュリティ | 認証なし API、ハードコード秘密鍵、SQLi | 鍵をドアマットの下に | **AGC, SEC** |
+| **L8** 信頼性リスク | タイムアウトなし、リトライなし、リソース解放忘れ | ブレーキのない車 | **TCR, RPC, MLS, GSS** |
 
 ### Blind Spot — 見えないリスク
 
 コードは正しく「見える」が、暗黙の前提に依存している。
 
-| Layer | 検出対象 | 例 | QAP |
+| Layer | 何を見つけるか | アナロジー | QAP |
 |:---|:---|:---|:---|
-| **L9** 暗黙知の罠 | 12ドメイン32パターン | `new Date().getMonth()` が 0-indexed であること (0=1月) | **TSI, ITCR, BVG, DFS** |
+| **L9** 暗黙知の罠 | `getMonth()` = 0始まり、`"👨‍👩‍👧".length` = 8 | 常識とコンピュータの溝 | **TSI, ITCR, BVG, DFS** |
 
-> L9 がカバーする 12 ドメイン: 時間・タイムゾーン / Unicode・文字列 / 浮動小数点・金額 / ネットワーク / データベース / 認証・セッション / 並行処理 / ファイルシステム / 暗号 / 正規表現 / シリアライゼーション / ブラウザ API
+> **L9 の 12 ドメイン**: 時間 / Unicode / 浮動小数点 / 金額 / ネットワーク / DB / 認証 / 並行処理 / ファイルシステム / 暗号 / 正規表現 / ブラウザ API
 
 ---
 
-## 18 QAP — 定量パラメーター
+## 18 QAP — 全てを数値化する
 
-「何かおかしい」を **4つの計測タイプ** で数値化する:
+```mermaid
+graph LR
+    subgraph Types["4つの計測タイプ"]
+        R["Ratio\n何割がちゃんとしてるか\n→ 1.0 が健全"]
+        P["Presence\nあってはいけないものの数\n= 0 が健全"]
+        S["Symmetry\n開けたら閉めたか\n→ 0.0 が健全"]
+        Sc["Scatter\n情報が散らばっていないか\n= 1.0 が健全"]
+    end
 
-| Type | 意味 | 健全値 | 異常値 | 例 |
-|:---:|:---|:---:|:---:|:---|
-| **Ratio** | 何割がちゃんとしてるか | → 1.0 | → 0.0 | catch 処理率 0.30 = 70%が空 |
-| **Presence** | あってはいけないものの数 | = 0 | > 0 | ハードコード秘密鍵 3個 |
-| **Symmetry** | 開けたら閉めたか | → 0.0 | → 1.0 | addEventListener 5 / remove 2 |
-| **Scatter** | 情報が散らばっていないか | = 1.0 | > 1.5 | 同一 URL が 4ファイルに散在 |
+    R --> R1["EHD = 0.30\ncatch 処理率 30%\n→ 70% がエラー握り潰し"]
+    P --> P1["SEC = 3\nハードコード秘密鍵 3個"]
+    S --> S1["MLS = 0.40\naddEventListener 5\nremoveEventListener 2"]
+    Sc --> Sc1["CSS = 2.5\n同一 URL が\n4ファイルに散在"]
+
+    style R fill:#14532d,stroke:#22c55e,color:#bbf7d0
+    style P fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
+    style S fill:#1e3a5f,stroke:#3b82f6,color:#eff6ff
+    style Sc fill:#78350f,stroke:#f59e0b,color:#fef3c7
+```
 
 <details>
 <summary><b>全18パラメーター一覧</b></summary>
@@ -261,9 +360,9 @@ graph TB
 |:---:|:---:|:---|:---:|:---:|:---|
 | 1 | **CFR** | 契約一致率 | Ratio | Ghost | 型定義 vs API 実装の一致率 |
 | 2 | **EHD** | エラー処理率 | Ratio | Ghost | catch 内でエラーを適切に処理している率 |
-| 3 | **ESR** | イベント購読率 | Ratio | Ghost | 定義されたイベント vs 実際に購読されている率 |
+| 3 | **ESR** | イベント購読率 | Ratio | Ghost | 定義イベント vs 実際の購読率 |
 | 4 | **HLR** | ハンドラ実装率 | Ratio | Ghost | UI ハンドラが実装済み (TODO/空でない) の率 |
-| 5 | **RRR** | ルート到達率 | Ratio | Ghost | 定義されたルート vs リンクから到達可能な率 |
+| 5 | **RRR** | ルート到達率 | Ratio | Ghost | 定義ルート vs リンクから到達可能な率 |
 | 6 | **ARR** | UI応答率 | Ratio | Ghost | アクション後に visible response がある率 |
 | 7 | **NCI** | 命名一貫性 | Ratio | Fragile | camelCase/snake_case の混在度 |
 | 8 | **CSS** | 設定散在度 | Scatter | Fragile | 同一設定値が何箇所に散在しているか |
@@ -282,15 +381,36 @@ graph TB
 
 ### Composite Score
 
-```
-Overall = 0.40 × Ghost + 0.35 × Fragile + 0.25 × BlindSpot
+```mermaid
+graph LR
+    subgraph Params["18 QAP"]
+        G["Ghost\nCFR, EHD, ESR\nHLR, RRR, ARR"]
+        F["Fragile\nNCI, CSS, TCR, AGC\nSEC, RPC, MLS, GSS"]
+        B["Blind Spot\nTSI, ITCR\nBVG, DFS"]
+    end
 
->= 0.80  Healthy    — 問題なし
-0.50-0.80 Warning   — 改善が望ましい
-< 0.50   Critical   — 即座に対処すべき
+    G -->|"× 0.40"| O["Overall Score"]
+    F -->|"× 0.35"| O
+    B -->|"× 0.25"| O
+
+    O --> H{">= 0.80"}
+    O --> W{"0.50 - 0.80"}
+    O --> C{"< 0.50"}
+
+    H --> HL["Healthy ✓"]
+    W --> WL["Warning ⚠"]
+    C --> CL["Critical ✗"]
+
+    style G fill:#581c87,stroke:#a855f7,color:#f3e8ff
+    style F fill:#7c2d12,stroke:#f97316,color:#fff7ed
+    style B fill:#1e3a5f,stroke:#3b82f6,color:#eff6ff
+    style O fill:#374151,stroke:#9ca3af,color:#f9fafb
+    style HL fill:#14532d,stroke:#22c55e,color:#bbf7d0
+    style WL fill:#78350f,stroke:#f59e0b,color:#fef3c7
+    style CL fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
 ```
 
-LLM 検証後: `adjusted_QAP = raw_QAP × (0.5 + 0.5 × avg_confidence)`
+LLM 検証後の補正: `adjusted_QAP = raw_QAP × (0.5 + 0.5 × avg_confidence)`
 
 ---
 
@@ -311,27 +431,26 @@ LLM-verified (Qwen3-Coder-Next / 47件検証)
 | **Overall** | **0.68** | **0.64** | **WARNING** |
 
 ### CRITICAL (2件)
-| # | Cat | Layer | QAP      | Conf | Location               | Symptom                    | Root Cause                  |
-|---|-----|-------|----------|------|------------------------|----------------------------|-----------------------------|
-| 1 | BS  | L9    | BVG=0.40 | 0.88 | server/api/user.ts:17  | readBody() にバリデーションなし | Zod スキーマが未適用           |
-| 2 | G   | L2    | EHD=0.30 | 0.92 | lib/api-client.ts:42   | 空 catch: エラー握り潰し       | TODO コメントのみで未実装       |
+| # | Cat | Layer | QAP      | Conf | Location               | Symptom              |
+|---|-----|-------|----------|------|------------------------|----------------------|
+| 1 | BS  | L9    | BVG=0.40 | 0.88 | server/api/user.ts:17  | バリデーションなし      |
+| 2 | G   | L2    | EHD=0.30 | 0.92 | lib/api-client.ts:42   | 空 catch             |
 
 ### WARNING (5件)
-| # | Cat | Layer | QAP      | Conf | Location               | Symptom                    | Root Cause                  |
-|---|-----|-------|----------|------|------------------------|----------------------------|-----------------------------|
-| 1 | G   | L10   | ARR=0.55 | 0.85 | pages/items.vue:31     | 削除後にリスト未更新            | refreshNuxtData() 欠如       |
-| 2 | F   | L7    | AGC=0.70 | 0.90 | server/api/admin.ts:5  | 認証ガードなし                | getServerSession() 未呼び出し |
-| 3 | F   | L8    | MLS=0.40 | 0.78 | composables/useWS.ts:8 | addEventListener 解除忘れ    | onUnmounted 未実装           |
-| ... |
+| # | Cat | Layer | QAP      | Conf | Location               | Symptom              |
+|---|-----|-------|----------|------|------------------------|----------------------|
+| 1 | G   | L10   | ARR=0.55 | 0.85 | pages/items.vue:31     | 削除後リスト未更新     |
+| 2 | F   | L7    | AGC=0.70 | 0.90 | server/api/admin.ts:5  | 認証ガードなし         |
+| 3 | F   | L8    | MLS=0.40 | 0.78 | composables/useWS.ts:8 | listener 解除忘れ     |
 
 ### LLM Verification Summary
-| Metric                 | Value    |
-|------------------------|----------|
-| Total grep matches     | 127      |
-| LLM verified           | 47       |
-| True positives         | 38       |
-| False positives removed | 9       |
-| Avg confidence         | 0.84     |
+| Metric                 | Value |
+|------------------------|-------|
+| Total grep matches     | 127   |
+| LLM verified           | 47    |
+| True positives         | 38    |
+| False positives removed | 9    |
+| Avg confidence         | 0.84  |
 ```
 
 ---
@@ -340,22 +459,35 @@ LLM-verified (Qwen3-Coder-Next / 47件検証)
 
 ```mermaid
 pie title Detection Patterns by Layer
+    "L7 Security — OWASP 2025" : 42
+    "L9 Implicit Knowledge — 12 domains" : 32
+    "L8 Reliability — SRE" : 28
     "L1-L6 General" : 28
-    "L7 Security (OWASP 2025)" : 42
-    "L8 Reliability (SRE)" : 28
-    "L9 Implicit Knowledge" : 32
     "L10 UI Responsiveness" : 10
 ```
 
-### パターン Tier 分類
+### Tier 分類 — 検出精度の階層
 
-各パターンには検出精度に基づく Tier が割り当てられている:
+```mermaid
+graph LR
+    subgraph A["Tier A — grep 高精度"]
+        A1["catch(e) { }\nハードコード秘密鍵\n== 非厳密比較"]
+    end
+    subgraph B["Tier B — grep + LLM"]
+        B1["意図的な空 catch？\n認証不要な public API？"]
+    end
+    subgraph C["Tier C — LLM 専用"]
+        C1["状態管理の適切性\nUX フローの整合性"]
+    end
 
-| Tier | 意味 | 検出方法 | 例 |
-|:---:|:---|:---|:---|
-| **A** | grep だけで高精度 | パターンマッチのみ | `catch(e) {}` (空 catch) |
-| **B** | grep + LLM で確定 | grep で候補 → LLM で判定 | 「このハンドラは意図的に空か？」 |
-| **C** | LLM 専用 | 文脈理解が必須 | 「この状態管理は適切か？」 |
+    A -->|"高速・確実"| R["検出結果"]
+    B -->|"候補→判定"| R
+    C -->|"文脈理解"| R
+
+    style A fill:#14532d,stroke:#22c55e,color:#bbf7d0
+    style B fill:#78350f,stroke:#f59e0b,color:#fef3c7
+    style C fill:#581c87,stroke:#a855f7,color:#f3e8ff
+```
 
 L10 の 10 パターンは **5A / 3B / 2C** — 半数が grep だけで高精度検出可能。
 
@@ -365,32 +497,30 @@ L10 の 10 パターンは **5A / 3B / 2C** — 半数が grep だけで高精�
 
 | コマンド | 説明 | 速度 |
 |:---|:---|:---:|
-| `/web-anomaly-detector:scan` | 全体スキャン (3並列エージェント + LLM検証) | ~30s |
-| `/web-anomaly-detector:scan diff` | git diff で変更ファイルのみ | ~10s |
-| `/web-anomaly-detector:scan path:src/api` | 特定ディレクトリのみ | ~10s |
+| `/web-anomaly-detector:scan` | 全体スキャン (3並列 + LLM検証) | ~30s |
+| `/web-anomaly-detector:scan diff` | git diff のみ | ~10s |
+| `/web-anomaly-detector:scan path:src/api` | 特定ディレクトリ | ~10s |
 | `/web-anomaly-detector:scan --grep-only` | LLM 検証なし (v2互換) | ~5s |
-| `/web-anomaly-detector:score` | QAP 数値のみ (パターン検出なし) | ~3s |
+| `/web-anomaly-detector:score` | QAP 数値のみ (軽量) | ~3s |
 | `/web-anomaly-detector:score --verify` | QAP + LLM 検証 | ~15s |
 
-自然言語でも起動可能:
+自然言語でも起動:
 
 ```
-「違和感を探して」「矛盾がないか確認して」「システム監査して」「何かおかしい」
+「違和感を探して」「矛盾がないか確認」「システム監査」「何かおかしい」
 ```
 
 ---
 
 ## Aufheben Agent — 検出から修正まで
 
-検出→分類→並列修正→検証を一気通貫で実行する外部エージェント。
-
 ```mermaid
 graph LR
     R["RECON\nStack検出"] --> D["DETECT\n3並列スキャン"]
-    D --> T["TRIAGE\nAUTO / MANUAL / SKIP"]
+    D --> T["TRIAGE\nAUTO/MANUAL/SKIP"]
     T --> F["FIX\nN並列修正"]
     F --> V["VERIFY\nBuild + Test"]
-    V --> Rep["REPORT\nBefore/After"]
+    V --> Rep["REPORT\nBefore → After"]
 
     style R fill:#1e3a5f,stroke:#3b82f6,color:#e2e8f0
     style D fill:#581c87,stroke:#a855f7,color:#f3e8ff
@@ -401,49 +531,79 @@ graph LR
 ```
 
 ```
-「アウフヘーベンして」
-「違和感を見つけて修正して」
+「アウフヘーベンして」→ 検出→分類→並列修正→検証を一気通貫で実行
 ```
 
 **安全装置**: `git stash` → `fix/aufheben-{timestamp}` ブランチ → ビルド失敗時 revert → 最大 20件/回
 
 ---
 
-## パッシブ検出 — 編集するたびに自動チェック
+## パッシブ検出フック
 
-`PostToolUse:Edit` フックにより、ファイルを編集するたびに **L2 (サイレント失敗)** と **L7 (セキュリティ)** を自動チェック。
+```mermaid
+graph LR
+    Edit["ファイル編集"] -->|"PostToolUse:Edit"| Hook["passive-detect.sh"]
+    Hook --> L2["L2 チェック\n空 catch 追加？"]
+    Hook --> L7["L7 チェック\n秘密鍵ハードコード？"]
+    L2 --> W["警告表示\n(非ブロッキング)"]
+    L7 --> W
 
-- **非ブロッキング**: 編集を止めない。問題があれば警告を表示するだけ
-- **対象**: 直前に編集したファイルのみ (全体スキャンではない)
-- **検出例**: `catch(e) {}` の追加、`password = "..."` のハードコード
+    style Edit fill:#374151,stroke:#6b7280,color:#9ca3af
+    style Hook fill:#581c87,stroke:#a855f7,color:#f3e8ff
+    style W fill:#78350f,stroke:#f59e0b,color:#fef3c7
+```
+
+編集するたびに **L2 (サイレント失敗)** と **L7 (セキュリティ)** を自動チェック。編集は止めない。
 
 ---
 
 ## 対応フレームワーク
 
-スタック非依存。`package.json` / `Cargo.toml` / `go.mod` 等からプロジェクトを自動検出し、
-フレームワーク固有のパターンを適用する。
+```mermaid
+graph TB
+    subgraph FE["Frontend"]
+        Vue["Vue / Nuxt 3-4"]
+        React["React / Next.js"]
+        Svelte["Svelte / Kit"]
+        Angular["Angular"]
+    end
+    subgraph BE["Backend"]
+        Node["Node / Express / Nitro"]
+        Hono["Hono / Fastify / tRPC"]
+        Python["FastAPI / Django"]
+        Go["Go / Rust"]
+    end
+    subgraph Build["Build"]
+        pnpm["pnpm / npm / yarn / bun"]
+        cargo["cargo / go build / pip"]
+    end
 
-| Frontend | Backend | Language |
-|:---|:---|:---|
-| Vue / Nuxt 3-4 | Node / Express / Nitro | TypeScript / JavaScript |
-| React / Next.js | Hono / Fastify / tRPC | Go |
-| Svelte / SvelteKit | Python / FastAPI / Django | Rust |
-| Angular | Ruby on Rails | Python |
+    FE & BE & Build --> Auto["自動検出\npackage.json / Cargo.toml\ngo.mod / requirements.txt"]
+
+    style Auto fill:#14532d,stroke:#22c55e,color:#bbf7d0
+```
+
+スタック非依存。プロジェクト構成ファイルから自動検出してパターンを適応。
 
 ---
 
-## LLM 検証 — ローカル完結
+## LLM 検証 — 完全ローカル
 
-外部 API に一切送信しない。全て localhost で完結する。
+```mermaid
+graph LR
+    subgraph Local["localhost (データ外部送信なし)"]
+        direction TB
+        LMS["LM Studio\nlocalhost:1234"]
+        Model["Qwen3-Coder-Next\n自動ロード"]
+        Script["lm-studio-ensure.sh\nサーバー + モデル自動管理"]
+    end
 
-| 項目 | 値 |
-|:---|:---|
-| **推論エンジン** | LM Studio (localhost:1234) |
-| **モデル** | Qwen3-Coder-Next (自動ロード) |
-| **自動化** | `lm-studio-ensure.sh` がサーバー+モデルを全自動管理 |
-| **フォールバック** | 未インストール → grep-only (非ブロッキング) |
-| **データ送信先** | なし (ローカルのみ) |
+    Grep["grep 候補"] --> Local --> Result["confidence 付き結果"]
+    Local -.->|"未インストール時"| Fallback["grep-only\n自動フォールバック"]
+
+    style Local fill:#1e3a5f,stroke:#3b82f6,color:#e2e8f0
+    style Fallback fill:#374151,stroke:#6b7280,color:#9ca3af
+```
 
 ---
 
@@ -454,7 +614,7 @@ web-anomaly-detector/
 ├── SKILL.md                        # エントリポイント (~100行)
 ├── ABSTRACT.md                     # 哲学的考察 — 違和感の認識論
 ├── .claude-plugin/plugin.json      # プラグインマニフェスト
-├── marketplace.json                # マーケットプレイス掲載情報
+├── marketplace.json                # マーケットプレイス情報
 │
 ├── commands/
 │   ├── scan.md                     # /scan — 全体スキャン + レポート
@@ -462,33 +622,31 @@ web-anomaly-detector/
 │
 ├── hooks/
 │   ├── passive-detect.sh           # Edit 後の L2+L7 パッシブ検出
-│   ├── lm-studio-ensure.sh         # LM Studio サーバー+モデル自動管理
-│   └── dom-verify.sh               # agent-browser DOM 応答性検証
+│   ├── lm-studio-ensure.sh         # LM Studio 自動管理
+│   └── dom-verify.sh               # agent-browser DOM 検証
 │
 └── references/
     ├── quantitative-parameters.md  # 18 QAP 定義・公式・閾値
-    ├── detection-patterns.md       # L1-L6, L10 汎用パターン
-    ├── uiux-semiotics.md           # L10: 論理哲学/記号論/認知心理/行動経済
-    ├── security-patterns.md        # L7: OWASP 2025 Top 10 (42パターン)
-    ├── reliability-patterns.md     # L8: SRE/Chaos Engineering (28パターン)
-    ├── implicit-knowledge.md       # L9: 12ドメイン (32パターン)
-    ├── llm-verify.md               # LLM 検証パイプライン仕様
+    ├── detection-patterns.md       # L1-L6, L10 パターン
+    ├── uiux-semiotics.md           # L10: 哲学/記号論/認知心理/行動経済
+    ├── security-patterns.md        # L7: OWASP 2025 (42 patterns)
+    ├── reliability-patterns.md     # L8: SRE (28 patterns)
+    ├── implicit-knowledge.md       # L9: 12 domains (32 patterns)
+    ├── llm-verify.md               # LLM 検証パイプライン
     ├── prompts/                    # カテゴリ別 LLM 検証プロンプト
-    └── case-archive.md             # 実例: 12件の本番障害分析
+    └── case-archive.md             # 実例: 12件の本番障害
 ```
 
 ---
 
 ## Research
 
-本スキルの閾値・重み・分類は以下の研究に基づいている:
-
 | Source | 貢献 |
 |:---|:---|
-| CK Metrics (Chidamber & Kemerer 1994) | CBO/WMC/RFC ベースの複雑度閾値 |
+| CK Metrics (Chidamber & Kemerer 1994) | CBO/WMC/RFC 複雑度閾値 |
 | Shannon Entropy (2025 Springer) | 情報理論ベース異常検出 |
 | OWASP Top 10 (2025) + API Security (2023) | セキュリティパターン・閾値 |
-| Google SRE Handbook (2024) | 信頼性パターン・重大度分類 |
+| Google SRE Handbook (2024) | 信頼性パターン・重大度 |
 | Bayesian Defect Prediction (Fenton 2012) | 欠陥予測の統計モデル |
 
 > **[違和感について — ひとつの哲学的考察](ABSTRACT.md)**: 感覚的確信の貧困、因果の幻影、生活世界の地盤、判断停止、止揚 — 「違和感」の認識論を8章で考察。

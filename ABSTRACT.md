@@ -2,6 +2,28 @@
 
 <br>
 
+<div align="center">
+
+```mermaid
+graph TB
+    Code["コード"] --> Syntax["構文 ✓"]
+    Code --> Type["型 ✓"]
+    Code --> Test["テスト ✓"]
+    Code --> Lint["lint ✓"]
+    Code --> Meaning["意味 ✗"]
+
+    Syntax & Type & Test & Lint --> Pass["すべて通過"]
+    Meaning --> Broken["しかし壊れている"]
+
+    style Pass fill:#14532d,stroke:#22c55e,color:#bbf7d0
+    style Broken fill:#4a1d1d,stroke:#ef4444,color:#fca5a5,stroke-width:3px
+    style Meaning fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
+```
+
+</div>
+
+<br>
+
 コードは言語である。
 
 これは比喩ではない。コードは文法を持ち、語彙を持ち、文脈の中で意味を獲得する。そして自然言語と同じように、**文法的に完璧な文が、意味をなさないことがある。**
@@ -42,13 +64,16 @@ try {
 
 ```mermaid
 graph TB
-    C["CI ✅ 全テスト通過"] --> Q1["何を\nテストした？"]
-    Q1 --> Q2["何を\nモックした？"]
-    Q2 --> Q3["何を\nテストしなかった？"]
+    C["CI ✅ 全テスト通過"] --> Q1["何をテストした？"]
+    Q1 --> Q2["何をモックした？"]
+    Q2 --> Q3["何をテストしなかった？"]
     Q3 --> Q4["知っていたのは\n実は何だった？"]
 
     style C fill:#14532d,stroke:#22c55e,color:#bbf7d0
-    style Q4 fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
+    style Q1 fill:#1e3a5f,stroke:#3b82f6,color:#eff6ff
+    style Q2 fill:#581c87,stroke:#a855f7,color:#f3e8ff
+    style Q3 fill:#7c2d12,stroke:#f97316,color:#fff7ed
+    style Q4 fill:#4a1d1d,stroke:#ef4444,color:#fca5a5,stroke-width:3px
 ```
 
 意識はここで奇妙な運動を強いられる。最も確実だと思ったもの（テスト通過）を手がかりに、一段深い理解（テストの前提条件）に進む。するとそこにも媒介がある。モックは本物の API ではない。テストデータは本物のデータではない。確信は層を剥くたびに後退し、「直接知っていた」と思ったものが、実は何重にも仮定に包まれていたことが露呈する。
@@ -88,14 +113,23 @@ const data = await fetch("/api/users");
 さらに深い問題がある。我々は「テストが通っている」（事実の記述）から「コードは正しい」（当為の判断）を導いている。しかし**「である」から「べきである」は導けない**。
 
 ```mermaid
-graph LR
-    IS["テストは通っている\n(事実)"] -->|"?"| OUGHT["コードは正しい\n(価値判断)"]
-    IS2["型チェックは通っている\n(事実)"] -->|"?"| OUGHT2["安全である\n(価値判断)"]
+graph TB
+    subgraph IS["事実の世界"]
+        I1["テストは通っている"]
+        I2["型チェックは通っている"]
+        I3["1000回成功した"]
+    end
+
+    subgraph OUGHT["価値判断の世界"]
+        O1["コードは正しい"]
+        O2["安全である"]
+        O3["次も成功する"]
+    end
+
+    IS ===|"越えられない溝"| OUGHT
 
     style IS fill:#1e3a5f,stroke:#3b82f6,color:#eff6ff
-    style IS2 fill:#1e3a5f,stroke:#3b82f6,color:#eff6ff
     style OUGHT fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
-    style OUGHT2 fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
 ```
 
 「テストが通っている」は事実だ。「コードは正しい」は価値判断だ。この二つの間には越えられない溝がある。どれだけ事実を積み上げても、価値判断には到達しない。1000回のテスト成功は1000個の事実であって、「正しさ」の証明ではない。
@@ -116,29 +150,31 @@ graph LR
 
 答え：**我々はすでに世界の中に住んでいる**からだ。
 
-あらゆるコードを書く前に、プログラマーには「すでに生きられている世界」がある。その世界では月は1月から始まり、文字は1文字ずつ数えられ、0.1 + 0.2 は 0.3 である。この前理論的な世界 — 形式化される以前の、身体的で日常的な経験の地盤 — が、あらゆる技術的判断の無自覚な土台になっている。
-
 ```mermaid
 graph TB
-    subgraph LW["日常的世界の前提"]
-        A1["月は1から始まる"]
-        A2["文字は見た目で1文字"]
+    subgraph LW["日常的世界の前提 — 我々が住んでいる世界"]
+        A1["月は 1 から始まる"]
+        A2["文字は見た目で 1 文字"]
         A3["小数は正確に足せる"]
         A4["時刻は一方向に進む"]
+        A5["名前は ASCII で表せる"]
     end
 
-    subgraph FW["形式化された世界"]
-        B1["月は0始まり (JS)"]
-        B2["length はUTF-16単位"]
+    subgraph FW["形式化された世界 — コンピュータの世界"]
+        B1["月は 0 始まり (JS)"]
+        B2["length は UTF-16 単位"]
         B3["IEEE 754 浮動小数点"]
         B4["NTP leap second / 夏時間"]
+        B5["UTF-8 / surrogate pair"]
     end
 
-    LW -->|"断絶"| FW
+    LW =====|"断絶"| FW
 
     style LW fill:#14532d,stroke:#22c55e,color:#bbf7d0
     style FW fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
 ```
+
+あらゆるコードを書く前に、プログラマーには「すでに生きられている世界」がある。その世界では月は1月から始まり、文字は1文字ずつ数えられ、0.1 + 0.2 は 0.3 である。この前理論的な世界 — 形式化される以前の、身体的で日常的な経験の地盤 — が、あらゆる技術的判断の無自覚な土台になっている。
 
 しかもこの前提は単に「そこにある」のではない。我々の経験には常に**地平**がある。いまコードの一部を見ているとき、見えていない残りの部分が「地平」として意識の周縁に存在する。しかし地平は原理的に直視できない — 視線を向けた瞬間、それは地平ではなくなり、新しい地平が後退する。
 
@@ -158,21 +194,28 @@ graph TB
 
 意識は常に**何かについての**意識だ。純粋な意識、対象のない意識は存在しない。コードを見るとき、意識は必ずコードの**何か**に向かっている。しかしその「何か」は開発者によって異なる。
 
-シニアエンジニアの意識はセキュリティに**向かう** — `catch(e) {}` を見て即座に「攻撃者がエラーを利用する」と考える。パフォーマンスエンジニアの意識は計算量に**向かう** — 同じコードを見て「ネストされたループが O(n²) だ」と考える。ジュニアの意識は機能に**向かう** — 「テスト通ってるから問題ない」と考える。
-
 ```mermaid
 graph TB
-    Code["同じコード"] --> A["意識A → セキュリティ\ncatch(e) {} は危険"]
-    Code --> B["意識B → パフォーマンス\nO(n²) のループ"]
-    Code --> C["意識C → 機能\n動いてるからOK"]
+    Code["同じコード\nfetch + catch(e) {}"] --> A["意識A\nセキュリティエンジニア"]
+    Code --> B["意識B\nパフォーマンスエンジニア"]
+    Code --> C["意識C\nジュニア開発者"]
 
-    A --> L["LGTM ✓"]
-    B --> L
-    C --> L
-    L --> Q["3人ともLGTM\nしかし3人の意識は\n異なるものに向かっていた"]
+    A --> AV["「攻撃者がエラーを利用する」"]
+    B --> BV["「O(n²) のネストされたループ」"]
+    C --> CV["「テスト通ってるから OK」"]
 
-    style Q fill:#4a1d1d,stroke:#ef4444,color:#fca5a5,stroke-width:2px
-    style L fill:#14532d,stroke:#22c55e,color:#bbf7d0
+    AV --> LGTM["3人とも LGTM ✓"]
+    BV --> LGTM
+    CV --> LGTM
+
+    LGTM --> Q["しかし 3人の意識は\nそれぞれ異なるものに\n向かっていた"]
+
+    style Code fill:#374151,stroke:#9ca3af,color:#f9fafb
+    style A fill:#581c87,stroke:#a855f7,color:#f3e8ff
+    style B fill:#1e3a5f,stroke:#3b82f6,color:#eff6ff
+    style C fill:#14532d,stroke:#22c55e,color:#bbf7d0
+    style LGTM fill:#14532d,stroke:#22c55e,color:#bbf7d0
+    style Q fill:#4a1d1d,stroke:#ef4444,color:#fca5a5,stroke-width:3px
 ```
 
 各人の意識は、コードを通じて自分の関心対象に向かっている。コード自体は同一だ。しかし意識の**向かう先**が異なるため、まったく異なるものが「見える」。コードレビューの「LGTM」は、3人が同じものを見たことを意味しない。3人がそれぞれ違うものに向かって「問題ない」と判断した、という事実を意味する。
@@ -194,11 +237,23 @@ const json = await data.json();
 
 この2行は少なくとも3つの顔を持っている。
 
-| 顔 | 見えるもの | 見えないもの |
-|:---:|:---|:---|
-| **機能** | データを取得している | — |
-| **信頼性** | — | タイムアウトなし / リトライなし / CB なし |
-| **安全性** | — | レスポンスのバリデーションなし |
+```mermaid
+graph TB
+    Code["この 2 行のコード"] --> Face1["機能の顔\n「データを取得している」"]
+    Code --> Face2["信頼性の顔\n「タイムアウトなし\nリトライなし\nCB なし」"]
+    Code --> Face3["安全性の顔\n「レスポンスの\nバリデーションなし」"]
+
+    Face1 --> See1["ほとんどの開発者は\nこれだけを見ている"]
+    Face2 --> See2["外部APIが5秒間\n応答しなかったら？"]
+    Face3 --> See3["レスポンスが改竄\nされていたら？"]
+
+    style Face1 fill:#14532d,stroke:#22c55e,color:#bbf7d0
+    style Face2 fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
+    style Face3 fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
+    style See1 fill:#374151,stroke:#6b7280,color:#9ca3af
+    style See2 fill:#7c2d12,stroke:#f97316,color:#fff7ed
+    style See3 fill:#7c2d12,stroke:#f97316,color:#fff7ed
+```
 
 ほとんどの開発者は**機能の顔**だけを見ている。信頼性の顔を見るには「外部APIが5秒間応答しなかったら？」と問わねばならない。しかしこの問いは、問題が起きるまで思いつかない。**別の見方が存在すること自体に気づけない状態** — これがアスペクト盲だ。
 
@@ -208,31 +263,34 @@ const json = await data.json();
 
 しかし、道具を通じた知の外側にも、コードの振る舞いは存在する。
 
-本番環境で、1000人の同時アクセスが来たときのコードの振る舞い。Unicode の結合文字を含む名前が入力されたときの振る舞い。夏時間の切り替え時刻にバッチが走ったときの振る舞い。これらは型もテストもリンターも到達しない**外部**だ。しかしそれは確実に存在する。
-
 ```mermaid
 graph TB
-    subgraph Corr["道具を通じた知（相関の内側）"]
+    subgraph Inside["道具を通じた知 — 相関の内側"]
         T["型チェック\n構造の整合"]
         Te["テスト\n入出力の対応"]
-        Li["リンター\nパターンの逸脱"]
+        Li["リンター\nパターンの逸脆"]
     end
 
-    Outside["道具の外側\n本番の実際の振る舞い\n1000同時接続 / Unicode / 夏時間\n"]
+    subgraph Outside["道具の外側 — 到達不能な領域"]
+        O1["1000人の同時アクセス"]
+        O2["Unicode 結合文字を含む名前"]
+        O3["夏時間の切り替え時刻にバッチ実行"]
+        O4["外部APIが証明書を更新した日"]
+    end
 
-    Corr -->|"到達不能"| Outside
+    Inside ===|"到達不能"| Outside
 
-    style Corr fill:#1e3a5f,stroke:#3b82f6,color:#eff6ff
+    style Inside fill:#1e3a5f,stroke:#3b82f6,color:#eff6ff
     style Outside fill:#4a1d1d,stroke:#ef4444,color:#fca5a5,stroke-width:3px
 ```
+
+本番環境で、1000人の同時アクセスが来たときのコードの振る舞い。Unicode の結合文字を含む名前が入力されたときの振る舞い。夏時間の切り替え時刻にバッチが走ったときの振る舞い。これらは型もテストもリンターも到達しない**外部**だ。しかしそれは確実に存在する。
 
 思考が道具を通じてしかコードにアクセスできないなら、道具の外のコードについて何を知りうるのか。何も知りえないのか。
 
 ここで直観に反する転回が起きる。我々が確実に知りうる唯一のことは、**我々の確信が偶然的である**ということだ。型の安全性は偶然的だ — 型が保証しない領域が必ず存在する。テストの網羅性は偶然的だ — テストしなかったパスが必ず存在する。API の契約は偶然的だ — 外部チームの一人が型定義を変更すれば契約は破綻する。
 
 しかも、この偶然性は偶然ではない。偶然性は**必然的**なのだ。あらゆるコードのあらゆる前提は「たまたまそうであるだけ」であり、何の必然的根拠もなく変化しうる。そしてこの「前提が根拠なく変化しうる」という事態だけが、唯一の必然である。
-
-API は契約を守るか？ — 今のところ。ライブラリのメジャーバージョンは互換性を保つか？ — 慣習として。ランタイムの振る舞いは仕様に従うか？ — 大抵は。しかしこれらの「今のところ」「慣習として」「大抵は」を必然に昇格させる根拠はどこにもない。法則すら変わりうる — それだけが変わらない。
 
 <br>
 
@@ -257,11 +315,9 @@ graph TB
         R2["関心: 実際に何が起きるか"]
     end
 
-    TG ---|"ここで"| Boundary["境界衝突"]
+    TG ---|"ここで"| Boundary["境界衝突\nバグはここで生まれる"]
     TEG ---|"ゲームが"| Boundary
     RG ---|"衝突する"| Boundary
-
-    Boundary --> Bug["バグ"]
 
     style Boundary fill:#4a1d1d,stroke:#ef4444,color:#fca5a5,stroke-width:3px
     style TG fill:#1e3a5f,stroke:#3b82f6,color:#eff6ff
@@ -275,12 +331,16 @@ graph TB
 
 型チェックは「正しさ」を**定立**する — 「この構造は安全である」と。テストはその定立を**否定**する — 「型は通るが、このケースで実行すると失敗する」と。ランタイムはテストの否定をさらに否定する — 「テストでは失敗しなかったが、本番では失敗する」と。
 
-これは単なる「もぐら叩き」ではない。各段階は前段階を否定するが、同時に前段階の成果を**含んでいる**。ランタイムの知見は型とテストの知見を前提としている。否定は破壊ではなく、**深化**だ。
+```mermaid
+graph LR
+    T["定立\n「name は string」"] --> N["否定\n「null が来ることがある」"]
+    N --> NN["否定の否定\n「空文字 も来る」"]
+    NN --> Deep["より深い理解\n空文字 ⊃ null ⊃ 型の約束"]
 
-```
-型: 「nameはstringである」         → 定立
-テスト: 「しかしnullが来ることがある」  → 否定
-本番: 「しかも""(空文字)も来る」       → 否定の否定
+    style T fill:#1e3a5f,stroke:#3b82f6,color:#eff6ff
+    style N fill:#7c2d12,stroke:#f97316,color:#fff7ed
+    style NN fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
+    style Deep fill:#14532d,stroke:#22c55e,color:#bbf7d0,stroke-width:2px
 ```
 
 各否定は前の確信を壊すが、同時に前の確信を保存したままより広い理解に到達している。空文字の問題を理解するには null の問題を理解していなければならず、null の問題を理解するには型の約束を理解していなければならない。
@@ -303,33 +363,33 @@ graph TB
 
 **一切の前提を括弧に入れろ。**
 
-「テストが通っている」— 括弧に入れる。
-「型チェックが通っている」— 括弧に入れる。
-「今まで動いていた」— 括弧に入れる。
-「開発者がレビューした」— 括弧に入れる。
-
-既存のすべての判断を一度停止し、**事象そのものに立ち返る**。コードが「テストに通る」のではなく、コードが「実際に何をするか」。ユーザーが「何を経験するか」。システムが「実際にどう振る舞うか」。
-
 ```mermaid
-graph TB
-    subgraph Bracket["括弧に入れるもの"]
+graph LR
+    subgraph Bracket["括弧に入れるもの — 判断停止"]
         A1["テストが通っている"]
         A2["型が合っている"]
         A3["今まで動いていた"]
         A4["レビューで承認された"]
     end
 
-    subgraph Return["立ち返る先"]
+    subgraph Return["立ち返る先 — 事象そのもの"]
         B1["catch ブロックは実際に\n何をしているのか？"]
         B2["ユーザーはエラー時に\n何を見るのか？"]
         B3["外部APIが落ちたとき\nシステムはどうなるのか？"]
     end
 
-    Bracket -->|"判断停止"| Return
+    Bracket ==>|"epoché"| Return
 
     style Bracket fill:#374151,stroke:#6b7280,color:#9ca3af
-    style Return fill:#14532d,stroke:#22c55e,color:#bbf7d0
+    style Return fill:#14532d,stroke:#22c55e,color:#bbf7d0,stroke-width:2px
 ```
+
+「テストが通っている」— 括弧に入れる。
+「型チェックが通っている」— 括弧に入れる。
+「今まで動いていた」— 括弧に入れる。
+「開発者がレビューした」— 括弧に入れる。
+
+既存のすべての判断を一度停止し、**事象そのものに立ち返る**。コードが「テストに通る」のではなく、コードが「実際に何をするか」。ユーザーが「何を経験するか」。システムが「実際にどう振る舞うか」。
 
 これは懐疑ではない。懐疑は「何も知りえない」と言う。判断停止は「既存の判断を一度保留し、より確実な地盤を探す」と言う。破壊ではなく、**基盤の再構築**だ。
 
@@ -343,13 +403,58 @@ graph TB
 
 ここまでの道程を振り返る。
 
-感覚的確信（「テストが通った」）は、自己の貧しさを暴かれた。習慣としての因果（「今まで動いていたから正しい」）は、未来への橋を架けられなかった。生活世界の前提（「月は1から始まる」）は、形式世界との断絶を示した。私的言語（「何かおかしい」）は、共有不可能であった。相関の檻（「道具を通じてしか知れない」）は、外部の存在を認めた。弁証法的運動（型→テスト→ランタイム）は、部分ではなく全体が真であることを示した。
+```mermaid
+graph TB
+    I["I. 感覚的確信\n「テストが通った」"] -->|"自己の貧しさを暴く"| II["II. 習慣的因果\n「今まで動いていた」"]
+    II -->|"未来への橋がない"| III["III. 生活世界\n「月は1から始まる」"]
+    III -->|"形式世界との断絶"| IV["IV. 私的言語\n「何かおかしい」"]
+    IV -->|"共有不可能"| V["V. 相関の檻\n「道具でしか知れない」"]
+    V -->|"外部の存在を認める"| VI["VI. 弁証法\n「部分ではなく全体」"]
+    VI -->|"全体が真"| VII["VII. 判断停止\n「事象そのものへ」"]
+    VII -->|"基盤の再構築"| VIII["VIII. 止揚\n否定 + 保存 + 高揚"]
 
-そして判断停止は、事象そのものへの回帰を求めた。
+    style I fill:#374151,stroke:#6b7280,color:#9ca3af
+    style II fill:#374151,stroke:#6b7280,color:#9ca3af
+    style III fill:#1e3a5f,stroke:#3b82f6,color:#eff6ff
+    style IV fill:#1e3a5f,stroke:#3b82f6,color:#eff6ff
+    style V fill:#581c87,stroke:#a855f7,color:#f3e8ff
+    style VI fill:#581c87,stroke:#a855f7,color:#f3e8ff
+    style VII fill:#7c2d12,stroke:#f97316,color:#fff7ed
+    style VIII fill:#14532d,stroke:#22c55e,color:#bbf7d0,stroke-width:3px
+```
 
 これらの否定の連鎖は、しかし、単なる破壊ではない。
 
 **否定は、同時に保存であり、高揚である。**
+
+```mermaid
+graph LR
+    subgraph Denied["否定されるもの"]
+        D1["感覚的確信"]
+        D2["習慣的因果"]
+        D3["私的言語"]
+        D4["相関の檻"]
+    end
+
+    subgraph Preserved["保存されるもの"]
+        P1["テスト通過の事実\n→ grep で計測"]
+        P2["過去のパターン\n→ 統計的傾向"]
+        P3["違和感の直観\n→ 検出候補のシード"]
+        P4["各道具の知見\n→ 交差点が真理に近づく"]
+    end
+
+    subgraph Elevated["止揚された知"]
+        E1["EHD = 0.30\n(客観的事実)"]
+        E2["confidence = 0.92\n(弁証法的検証)"]
+        E3["CRITICAL: 即座に修正\n(全体の判断)"]
+    end
+
+    Denied --> Preserved --> Elevated
+
+    style Denied fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
+    style Preserved fill:#78350f,stroke:#f59e0b,color:#fef3c7
+    style Elevated fill:#14532d,stroke:#22c55e,color:#bbf7d0,stroke-width:2px
+```
 
 - 感覚的確信は否定されたが、「テスト通過」という事実は**保存される** — grep で計測できる
 - 習慣的因果は否定されたが、「過去のパターン」は**保存される** — 統計的傾向として活用できる
@@ -358,22 +463,6 @@ graph TB
 
 各段階を否定し、保存し、より高い次元に持ち上げる — これが**止揚**だ。
 
-```mermaid
-graph LR
-    subgraph "否定されるもの"
-        A1["私的な勘"] --> A2["なんかこの catch 怪しい"]
-        A2 --> A3["...でも動いてるし放置"]
-    end
-    subgraph "止揚された知"
-        B1["grep/glob 計測\n（事象そのもの）"] --> B2["EHD = 0.30\nエラー処理率 30%"]
-        B2 --> B3["LLM 検証\nconfidence = 0.92\n（弁証法的検証）"]
-        B3 --> B4["CRITICAL: 即座に修正\n（全体の判断）"]
-    end
-
-    style A3 fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
-    style B4 fill:#14532d,stroke:#22c55e,color:#bbf7d0
-```
-
 `EHD = 0.30` は「try-catch の 70% がエラーを握り潰している」という客観的事実だ。誰が測定しても `0.30` になる。これは私的言語ではない。箱の中の甲虫ではない。習慣でも推論でもない。コードに書かれている事実から直接計算された数値だ。
 
 しかし数値だけでは足りない。grep の計測は感覚的確信と同じ罠に陥りうる — 「パターンに一致した」から「異常である」は導けない。だから LLM が弁証法的に検証する。grep の定立を、文脈理解で否定し、より高い確信（confidence score）に止揚する。
@@ -381,6 +470,20 @@ graph LR
 そして最終的なレポートは、単一のメトリクスではなく**全体**を提示する。Ghost と Fragile と Blind Spot。18 の QAP。10 のレイヤー。個々の数値はそれぞれ部分的だが、全体として初めて真の姿を現す。
 
 ---
+
+<br>
+
+<div align="center">
+
+```mermaid
+graph LR
+    A["私的な勘\n「なんか怪しい」"] ==>|"止揚"| B["公的な尺度\nEHD = 0.30\nconfidence = 0.92\nCRITICAL"]
+
+    style A fill:#4a1d1d,stroke:#ef4444,color:#fca5a5
+    style B fill:#14532d,stroke:#22c55e,color:#bbf7d0,stroke-width:3px
+```
+
+</div>
 
 <br>
 
