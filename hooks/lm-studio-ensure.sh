@@ -44,7 +44,7 @@ if [ ! -x "$LMS" ]; then
 fi
 
 # --- Step 1: Server status ---
-SERVER_STATUS=$("$LMS" server status 2>&1 || true)
+SERVER_STATUS=$("$LMS" server status 2>/dev/null) || SERVER_STATUS="not_running"
 
 if echo "$SERVER_STATUS" | grep -q "running"; then
   log "Server already running"
@@ -70,21 +70,20 @@ else
 fi
 
 # --- Step 2: Check if model is already loaded ---
-LOADED=$("$LMS" ps 2>&1 || true)
+LOADED=$("$LMS" ps 2>/dev/null) || LOADED=""
 
 if echo "$LOADED" | grep -qi "qwen3-coder-next"; then
   log "Model already loaded"
   # Retrieve model ID from API
-  MODEL_ID=$(curl -s --connect-timeout "$HEALTH_CHECK_TIMEOUT" \
+  MODEL_ID=$(curl -s --connect-timeout "$HEALTH_CHECK_TIMEOUT" --max-time 10 \
     "${API_BASE}/api/v0/models" 2>/dev/null \
-    | jq -r '.data[] | select(.id | test("qwen3.*coder.*next"; "i")) | .id' 2>&1 \
-    | { grep -v '^$' || true; } | head -1)
-  # jq パースエラー時はログ出力 (サイレント抑制しない)
+    | jq -r '.data[] | select(.id | test("qwen3.*coder.*next"; "i")) | .id' 2>/dev/null \
+    | head -1)
   if [ -z "$MODEL_ID" ] || [ "$MODEL_ID" = "null" ]; then
     log "Warning: could not parse model ID from API response"
   fi
 
-  if [ -n "$MODEL_ID" ] && [ "$MODEL_ID" != "null" ] && ! echo "$MODEL_ID" | grep -q "^jq:"; then
+  if [ -n "$MODEL_ID" ] && [ "$MODEL_ID" != "null" ]; then
     echo "READY:${MODEL_ID}"
   else
     echo "READY:${MODEL_IDENTIFIER}"
@@ -98,20 +97,21 @@ log "Loading ${MODEL_PATH} (this may take 30-90s)..."
   --gpu max \
   --identifier "$MODEL_IDENTIFIER" \
   -y \
-  2>&1 | while IFS= read -r line; do log "$line"; done &
+  >/dev/null 2>&1 &
 LOAD_PID=$!
 
 # Wait for model to appear in loaded list
 ELAPSED=0
 while [ $ELAPSED -lt $MODEL_LOAD_TIMEOUT ]; do
   # Check via API
-  MODELS=$(curl -s --connect-timeout "$HEALTH_CHECK_TIMEOUT" \
+  MODELS=$(curl -s --connect-timeout "$HEALTH_CHECK_TIMEOUT" --max-time 10 \
     "${API_BASE}/api/v0/models" 2>/dev/null || true)
 
   if echo "$MODELS" | jq -e '.data[] | select(.id | test("qwen3.*coder.*next"; "i"))' >/dev/null 2>&1; then
     log "Model loaded successfully (${ELAPSED}s)"
-    kill $LOAD_PID 2>/dev/null || true
-    wait $LOAD_PID 2>/dev/null || true
+    kill "$LOAD_PID" 2>/dev/null || true
+    wait "$LOAD_PID" 2>/dev/null || true
+    LOAD_PID=""
 
     MODEL_ID=$(echo "$MODELS" \
       | jq -r '.data[] | select(.id | test("qwen3.*coder.*next"; "i")) | .id' \
@@ -125,7 +125,8 @@ while [ $ELAPSED -lt $MODEL_LOAD_TIMEOUT ]; do
 done
 
 # Timeout
-kill $LOAD_PID 2>/dev/null || true
-wait $LOAD_PID 2>/dev/null || true
+kill "$LOAD_PID" 2>/dev/null || true
+wait "$LOAD_PID" 2>/dev/null || true
+LOAD_PID=""
 echo "UNAVAILABLE:model_load_timeout"
 exit 0

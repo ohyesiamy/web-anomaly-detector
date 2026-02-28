@@ -1,9 +1,9 @@
 {
   "name": "web-anomaly-detector",
   "display_name": "Web Anomaly Detector",
-  "version": "3.2.0",
-  "description": "Detect code anomalies quantitatively — Ghost (broken), Fragile (breakable), Blind Spot (invisible risks) across 9 layers with 17 measurable parameters + LLM verification via LM Studio",
-  "description_ja": "コードの「違和感」を定量的に検出し LLM で検証 — grep/glob → Qwen3-Coder-Next の 2-stage pipeline。3カテゴリ×9レイヤー、17 QAP + confidence scoring",
+  "version": "3.4.0",
+  "description": "Detect code anomalies quantitatively — Ghost (broken), Fragile (breakable), Blind Spot (invisible risks) across 10 layers with 18 measurable parameters + LLM verification via LM Studio + agent-browser DOM verification",
+  "description_ja": "コードの「違和感」を定量的に検出し LLM で検証 — grep/glob → Qwen3-Coder-Next の 2-stage pipeline。3カテゴリ×10レイヤー、18 QAP、140パターン (Tier A/B/C) + agent-browser DOM検証",
   "author": {
     "name": "ohyesiamy",
     "url": "https://github.com/ohyesiamy"
@@ -26,8 +26,10 @@
   ],
   "features": [
     "3-category classification (Ghost/Fragile/Blind Spot)",
-    "9-layer detection framework (L1-L9)",
-    "17 quantitative anomaly parameters (QAP)",
+    "10-layer detection framework (L1-L10)",
+    "18 quantitative anomaly parameters (QAP) with Tier A/B/C classification",
+    "140 detection patterns (framework-agnostic)",
+    "L10 UI Responsiveness — Action-Response Rate (ARR) with agent-browser DOM verification",
     "Composite scoring with adaptive thresholds",
     "Framework-agnostic (Vue, React, Svelte, Angular, Express, etc.)",
     "OWASP Top 10 2025 security patterns (42 patterns)",

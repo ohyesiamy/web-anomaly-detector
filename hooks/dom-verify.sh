@@ -23,12 +23,18 @@ set -uo pipefail
 
 # --- Configuration ---
 BASE_URL="${1:-}"
-HEALTH_TIMEOUT=1          # seconds — health check timeout
+HEALTH_TIMEOUT=3          # seconds — health check timeout (slow networks)
 WAIT_AFTER_CLICK=500      # ms — DOM 変化を待つ時間
-REPORT_FILE="/tmp/dom-verify-$(date +%s).json"
+REPORT_FILE="/tmp/dom-verify-$$.json"
 
 # --- Helper ---
 log() { echo "[dom-verify] $*" >&2; }
+
+# --- Cleanup on exit ---
+cleanup() {
+  rm -f "$REPORT_FILE" 2>/dev/null || true
+}
+trap cleanup EXIT
 
 # --- Step 0: Argument check ---
 if [ -z "$BASE_URL" ]; then
@@ -37,9 +43,9 @@ if [ -z "$BASE_URL" ]; then
 fi
 
 # --- Step 1: Health check (app running?) ---
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout "$HEALTH_TIMEOUT" "$BASE_URL" 2>/dev/null || echo "000")
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout "$HEALTH_TIMEOUT" --max-time 10 "$BASE_URL" 2>/dev/null || echo "000")
 
-if [ "$HTTP_CODE" = "000" ] || [ "$HTTP_CODE" -ge 500 ] 2>/dev/null; then
+if [ "$HTTP_CODE" = "000" ] || { echo "$HTTP_CODE" | grep -qE '^[0-9]+$' && [ "$HTTP_CODE" -ge 500 ]; }; then
   log "App not reachable at ${BASE_URL} (HTTP ${HTTP_CODE})"
   echo "UNAVAILABLE:app_not_running"
   exit 0
@@ -72,9 +78,9 @@ fi
 
 # --- Step 4: Extract interactive elements from accessibility tree ---
 # Parse refs for interactive elements (buttons, links, forms)
+# accessibility snapshot の ref 属性は数値IDを期待 (agent-browser 仕様)
 INTERACTIVE_REFS=$(echo "$SNAPSHOT_BEFORE" \
-  | grep -oE 'ref="[^"]*"' \
-  | grep -iE 'button|link|submit|checkbox|tab' \
+  | grep -oE 'ref="[0-9]+"' \
   | sed 's/ref="//;s/"//' \
   | head -20)
 
@@ -101,17 +107,23 @@ while IFS= read -r ref; do
   [ -z "$ref" ] && continue
   TOTAL=$((TOTAL + 1))
 
+  # Cross-platform hash (macOS: md5, Linux: md5sum)
+  _hash() { md5sum 2>/dev/null | cut -d' ' -f1 || md5 2>/dev/null || cat; }
+
   # Snapshot before click
-  SNAP_PRE=$(npx agent-browser snapshot 2>/dev/null | md5 2>/dev/null || echo "pre")
+  SNAP_PRE=$(npx agent-browser snapshot 2>/dev/null | _hash)
 
   # Click the element
-  npx agent-browser click --ref "$ref" 2>/dev/null
+  if ! npx agent-browser click --ref "$ref" 2>/dev/null; then
+    log "  ref=${ref} -> click_failed"
+    continue
+  fi
 
   # Wait for DOM changes
-  sleep "0.$(printf '%03d' $WAIT_AFTER_CLICK)"
+  sleep 0.5
 
   # Snapshot after click
-  SNAP_POST=$(npx agent-browser snapshot 2>/dev/null | md5 2>/dev/null || echo "post")
+  SNAP_POST=$(npx agent-browser snapshot 2>/dev/null | _hash)
 
   # Compare
   if [ "$SNAP_PRE" = "$SNAP_POST" ]; then
@@ -128,7 +140,11 @@ while IFS= read -r ref; do
   else
     DETAILS_JSON="${DETAILS_JSON},"
   fi
-  DETAILS_JSON="${DETAILS_JSON}{\"ref\":\"${ref}\",\"status\":\"${STATUS}\"}"
+  # jq でエスケープ安全な JSON 組み立て
+  ENTRY=$(printf '{"ref":%s,"status":%s}' \
+    "$(printf '%s' "$ref" | jq -Rs .)" \
+    "$(printf '%s' "$STATUS" | jq -Rs .)")
+  DETAILS_JSON="${DETAILS_JSON}${ENTRY}"
 
   log "  ref=${ref} -> ${STATUS}"
 done <<< "$INTERACTIVE_REFS"

@@ -1,11 +1,11 @@
 ---
 name: scan
-description: "プロジェクト全体をスキャンし、3カテゴリ×9レイヤーの違和感レポートを生成する"
+description: "プロジェクト全体をスキャンし、3カテゴリ×10レイヤーの違和感レポートを生成する"
 ---
 
 # /web-anomaly-detector:scan
 
-プロジェクト全体を 3カテゴリ × 9レイヤーでスキャンし、QAP スコア付きレポートを出力する。
+プロジェクト全体を 3カテゴリ × 10レイヤーでスキャンし、QAP スコア付きレポートを出力する。
 v3.0: LM Studio (Qwen3-Coder-Next) による LLM 検証で偽陽性を削減。
 
 ## Usage
@@ -53,9 +53,9 @@ Glob "tsconfig.json"      → TypeScript
 Agent ツールで 3つの Explore エージェントを **並列** 起動:
 
 ```
-Agent A (Ghost — L1-L4):
-  - references/detection-patterns.md の L1-L4 パターンで grep/glob
-  - CFR, EHD, ESR, HLR, RRR を計測
+Agent A (Ghost — L1-L4, L10):
+  - references/detection-patterns.md の L1-L4, L10 パターンで grep/glob
+  - CFR, EHD, ESR, HLR, RRR, ARR を計測
   - 出力: SEVERITY|LAYER|FILE:LINE|SYMPTOM|ROOT_CAUSE|MATCHED_LINE
 
 Agent B (Fragile — L5-L8):
@@ -229,8 +229,8 @@ LLM-verified (Qwen3-Coder-Next / N件検証) / grep-only
 ## Boundaries
 
 **Will:**
-- 3カテゴリ × 9レイヤーの全パターンスキャン
-- 17 QAP パラメーターの計測
+- 3カテゴリ × 10レイヤーの全パターンスキャン (140パターン)
+- 18 QAP パラメーターの計測
 - LLM による偽陽性検証 (LM Studio 利用可能時)
 - Confidence-adjusted Composite Score の算出
 - 重要度別レポート出力 (confidence 付き)

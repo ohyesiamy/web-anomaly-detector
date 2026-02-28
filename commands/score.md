@@ -5,7 +5,7 @@ description: "QAPスコアのみを高速計算して表示する (パターン�
 
 # /web-anomaly-detector:score
 
-QAP 17パラメーターの数値計算のみを実行し、Composite Score を表示する。
+QAP 18パラメーターの数値計算のみを実行し、Composite Score を表示する。
 パターン検出・レポート生成は行わない軽量版。
 
 ## Usage
@@ -27,10 +27,10 @@ Glob でプロジェクトスタックを検出し、ソースディレクトリ
 
 ### 2. QAP 計測 (直列で高速実行)
 
-Agent を使わず、直接 Grep/Glob で 17 パラメーターを計測する。
+Agent を使わず、直接 Grep/Glob で 18 パラメーターを計測する。
 参照: `references/quantitative-parameters.md`
 
-**Ghost (G1-G5):**
+**Ghost (G1-G6):**
 ```bash
 # CFR: 型定義 vs API 実装の一致率
 Grep "export (interface|type) " glob="*.ts" path="types/"  → total_types
@@ -56,6 +56,11 @@ HLR = implemented / total_handlers
 Grep "path:|to=" glob="*.ts,*.vue,*.tsx"                    → defined_routes
 Grep "href=|<Link|<NuxtLink|<a " glob="*.vue,*.tsx"        → linked_routes
 RRR = linked / defined
+
+# ARR: アクション応答率 (L10)
+Grep "onClick|@click|on:click|@submit|onSubmit" glob="*.vue,*.tsx,*.svelte,*.jsx"  → total_actions
+Grep "setState|ref\\.value|\\$patch|mutate|invalidate|refetch|refresh" glob="*.vue,*.tsx,*.svelte,*.jsx" → with_response
+ARR = with_response / total_actions
 ```
 
 **Fragile (F1-F8):**
@@ -160,13 +165,13 @@ Adjusted = Raw × (0.5 + 0.5 × avg_confidence) — 詳細: quantitative-paramet
 | Tool | 用途 |
 |------|------|
 | **Glob** | プロジェクト偵察 |
-| **Grep** | QAP パラメーター計測 (全17個) |
+| **Grep** | QAP パラメーター計測 (全18個) |
 | **Read** | quantitative-parameters.md 参照 |
 
 ## Boundaries
 
 **Will:**
-- 17 QAP パラメーターの数値計測
+- 18 QAP パラメーターの数値計測
 - Composite Score 算出
 - スコアテーブル出力
 
