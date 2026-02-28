@@ -38,14 +38,9 @@ description: コードの「違和感」を定量的に検出 — Ghost(動か�
 | Symmetry | 0.0 | -> 1.0 | addEventListener vs removeEventListener |
 | Scatter | 1.0 | > 1.5 | 同一設定値の散在度 |
 
-**Composite Scores** (各カテゴリのスコア → Overall):
-```
-Ghost    = 0.3×CFR + 0.3×EHD + 0.15×ESR + 0.15×HLR + 0.1×RRR
-Fragile  = 0.15×NCI + 0.1×CSS' + 0.2×TCR + 0.2×AGC + 0.1×SEC' + 0.1×RPC + 0.1×MLS' + 0.05×GSS
-BlindSpot = 0.25×TSI' + 0.2×ITCR' + 0.3×BVG + 0.25×DFS
-Overall  = 0.40×Ghost + 0.35×Fragile + 0.25×BlindSpot
-```
+**Composite Scores**: 各カテゴリの重み付きスコア → Overall (0.40 Ghost + 0.35 Fragile + 0.25 BlindSpot)
 判定: >= 0.80 Healthy / 0.50-0.80 Warning / < 0.50 Critical
+*(公式詳細: `references/quantitative-parameters.md` Composite Scores セクション)*
 
 ## 実行ワークフロー
 

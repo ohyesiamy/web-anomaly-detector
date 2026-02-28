@@ -76,49 +76,20 @@ Blind Spot (見えないリスク)
 
 ### QAP (Quantitative Anomaly Parameters)
 
-「何かおかしい」を数値化する 17 個のパラメーター。全て grep/glob で計測可能。
+「何かおかしい」を 17 個のパラメーターで数値化する。全て grep/glob で計測可能。
+4 計測タイプ: **Ratio** (→1.0 healthy), **Presence** (0 healthy), **Symmetry** (0.0 healthy), **Scatter** (1.0 healthy)
 
-| # | Parameter | Type | What it Measures |
-|---|-----------|------|------------------|
-| G1 | **CFR** (Contract Fulfillment Rate) | Ratio | 型定義と API 実装の一致率 |
-| G2 | **EHD** (Error Handling Density) | Ratio | catch 内の適切なエラー処理率 |
-| G3 | **ESR** (Event Subscription Ratio) | Ratio | 定義されたイベントの購読率 |
-| G4 | **HLR** (Handler Liveness Rate) | Ratio | UI ハンドラの実装率 |
-| G5 | **RRR** (Route Reachability Rate) | Ratio | ルートへのリンク存在率 |
-| F1 | **NCI** (Naming Consistency Index) | Ratio | 命名規則の一貫性 |
-| F2 | **CSS** (Configuration Scatter Score) | Scatter | 設定値の散在度 |
-| F3 | **TCR** (Timeout Coverage Rate) | Ratio | 外部呼び出しのタイムアウト設定率 |
-| F4 | **AGC** (Auth Guard Coverage) | Ratio | API の認証保護率 |
-| F5 | **SEC** (Secret Exposure Count) | Presence | ハードコードされた秘密鍵の数 |
-| F6 | **RPC** (Resilience Pair Coverage) | Ratio | リトライ/CB の実装率 |
-| F7 | **MLS** (Memory Leak Symmetry) | Symmetry | リソース確保/解放の対称性 |
-| F8 | **GSS** (Graceful Shutdown Score) | Presence | シグナルハンドリングの実装 |
-| B1 | **TSI** (TODO Staleness Index) | Ratio | 放置された TODO の古さ |
-| B2 | **ITCR** (Implicit Type Coercion Risk) | Presence | 暗黙的型変換のリスク数 |
-| B3 | **BVG** (Boundary Validation Gap) | Ratio | 入力バリデーションの欠落率 |
-| B4 | **DFS** (Dependency Freshness Score) | Ratio | 依存パッケージの管理品質 |
+Ghost: CFR (契約一致率), EHD (エラー処理率), ESR (イベント購読率), HLR (ハンドラ実装率), RRR (ルート到達率)
+Fragile: NCI (命名一貫性), CSS (設定散在度), TCR (タイムアウト率), AGC (認証保護率), SEC (秘密鍵露出), RPC (耐障害率), MLS (リソース対称性), GSS (シャットダウン)
+Blind Spot: TSI (TODO放置), ITCR (暗黙型変換), BVG (バリデーション欠落), DFS (依存管理品質)
 
-4つの計測タイプ:
-
-| Type | Healthy | Anomalous | Example |
-|------|---------|-----------|---------|
-| **Ratio** | → 1.0 | → 0.0 | catch の処理率、認証保護率 |
-| **Presence** | 0 | > 0 | ハードコードされた秘密鍵の数 |
-| **Symmetry** | 0.0 | → 1.0 | addEventListener vs removeEventListener |
-| **Scatter** | 1.0 | > 1.5 | 同一設定値の散在箇所数 |
+全パラメーター定義・計測方法・閾値: [`references/quantitative-parameters.md`](references/quantitative-parameters.md)
 
 ### Composite Scoring
 
 個別パラメーターを重み付けして各カテゴリのスコアを算出し、Overall に統合する。
 
-```
-Ghost    = 0.30×CFR + 0.30×EHD + 0.15×ESR + 0.15×HLR + 0.10×RRR
-Fragile  = 0.15×NCI + 0.10×CSS' + 0.20×TCR + 0.20×AGC + 0.10×SEC' + 0.10×RPC + 0.10×MLS' + 0.05×GSS
-BlindSpot = 0.25×TSI' + 0.20×ITCR' + 0.30×BVG + 0.25×DFS
-Overall  = 0.40×Ghost + 0.35×Fragile + 0.25×BlindSpot
-```
-
-判定基準:
+`Overall = 0.40×Ghost + 0.35×Fragile + 0.25×BlindSpot`
 
 | Score | Status | Action |
 |-------|--------|--------|
@@ -126,19 +97,7 @@ Overall  = 0.40×Ghost + 0.35×Fragile + 0.25×BlindSpot
 | 0.50 - 0.80 | Warning | 計画的に対処 |
 | < 0.50 | Critical | 即座に対処 |
 
-### Adaptive Thresholds
-
-プロジェクトの文脈に応じて閾値を自動調整する。
-CK Metrics の研究知見: 普遍的閾値は存在しない。
-
-| Context | Adjustment |
-|---------|-----------|
-| Prototype / MVP | WARNING 閾値を 20% 緩和 |
-| Production | 標準閾値を使用 |
-| Financial / Medical | WARNING 閾値を 15% 厳格化 |
-| Monolith | CSS 閾値を緩和 |
-| Microservices | TCR/RPC/GSS 閾値を厳格化 |
-| Static site / SSG | L3/L8 をスキップ |
+公式詳細・適応的閾値: [`references/quantitative-parameters.md`](references/quantitative-parameters.md)
 
 ## Commands
 

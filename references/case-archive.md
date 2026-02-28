@@ -39,35 +39,45 @@
 - **Layer**: L8 (信頼性リスク) | **QAP**: GSS, RPC
 - **症状**: 世界中の Windows マシンが BSOD (約850万台)
 - **原因**: カーネルレベルドライバの自動アップデートにカナリアリリースなし。テンプレート定義ファイル (Channel 291) のバリデーション不備で NULL ポインタ参照
-- **検出パターン**: 自動アップデートにロールバック機構がない / 段階的デプロイなし
+- **grep 検出可能な前兆**:
+  - `Grep "SIGTERM|graceful" glob="*.ts,*.js"` → GSS=0.0 (シャットダウン制御なし = ロールバック困難)
+  - `Grep "zod|joi|validate|schema" path="server/" glob="*.ts"` → BVG 低下 (入力バリデーション欠如が根本原因)
 - **教訓**: カーネル/インフラレベルの変更は段階的ロールアウト必須。バリデーション (L9 B3) の欠如が直接原因
 
 ### Case F2: Cloudflare 1.1.1.1 障害 (2024-10-04)
 - **Layer**: L8 (信頼性リスク) | **QAP**: TCR
 - **症状**: Cloudflare の DNS リゾルバ (1.1.1.1) が断続的に応答不能
 - **原因**: BGP の設定変更がルーティングテーブルの不整合を引き起こし、Internal DNS バックエンドへの接続がタイムアウト。Circuit Breaker の欠如で障害が拡大
-- **検出パターン**: 外部依存にタイムアウトなし / Circuit Breaker なし
+- **grep 検出可能な前兆**:
+  - `Grep "timeout|AbortController" path="server/" glob="*.ts"` → TCR 低下 (タイムアウト未設定)
+  - `Grep "circuitBreaker|opossum" glob="*.ts,package.json"` → RPC 低下 (CB 不在)
 - **教訓**: TCR (Timeout Coverage Rate) の重要性。依存サービスの障害を想定した設計
 
 ### Case F3: GitHub Actions 暗号化キー漏洩 (2024-12)
 - **Layer**: L7 (セキュリティ欠陥) | **QAP**: SEC
 - **症状**: GitHub Actions のログにシークレットが平文で出力される脆弱性
 - **原因**: ログマスキング処理のバイパスパス。特定のエンコーディング (Base64 等) でシークレットが出力されるとマスクが適用されない
-- **検出パターン**: `Grep "console.log.*secret|log.*token|print.*password"` — ログへの機密情報出力
-- **教訓**: シークレットのマスキングは出力箇所全てで必要。SEC (Secret Exposure Count) > 0 は即 CRITICAL
+- **grep 検出可能な前兆**:
+  - `Grep "console.log.*password|logger.*token|log.*secret" glob="*.ts,*.js"` → P7.29 (機密情報のログ出力)
+  - `Grep "AKIA|sk-|ghp_|xox" glob="*.ts,*.js,*.env"` → SEC > 0 (ハードコード秘密鍵)
+- **教訓**: シークレットのマスキングは出力箇所全てで必要。SEC > 0 は即 CRITICAL
 
 ### Case F4: OpenAI API 障害 (2024-12-11)
 - **Layer**: L8 (信頼性リスク) | **QAP**: RPC
 - **症状**: ChatGPT と API が数時間ダウン
 - **原因**: 新サービスデプロイ時の Kubernetes クラスター自動スケーリングが DNS 解決パフォーマンスを低下させ、カスケード障害に発展
-- **検出パターン**: DNS 依存のタイムアウトなし / Bulkhead パターンの欠如
+- **grep 検出可能な前兆**:
+  - `Grep "bulkhead|pLimit|concurrency.*limit" glob="*.ts,package.json"` → P8.17 (Bulkhead 欠如)
+  - `Grep "retry.*backoff|exponential" glob="*.ts"` → P8.4 (バックオフなしリトライ)
 - **教訓**: スケーリングイベント時の DNS 負荷を考慮。Cascading Failure 防止
 
 ### Case F5: Zoom 全面ダウン (2024-04-17)
 - **Layer**: L5 (構造矛盾) + L8 (信頼性) | **QAP**: CSS, GSS
 - **症状**: Zoom のビデオ/音声/チャットが全世界でダウン
 - **原因**: ドメイン更新の管理プロセスの不備で DNS 設定が失効。設定が複数箇所に散在し、更新漏れが発生
-- **検出パターン**: CSS (Configuration Scatter Score) > 2.0 — 同一設定の散在
+- **grep 検出可能な前兆**:
+  - `Grep "process\.env\.|import\.meta\.env\." glob="*.ts,*.js"` → CSS > 2.0 (同一設定の散在)
+  - `Grep "localhost|127\.0\.0\.1" path="server/" glob="*.ts"` → P8.27 (ハードコードアドレス)
 - **教訓**: インフラ設定の Single Source of Truth が必要
 
 ---

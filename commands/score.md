@@ -92,41 +92,40 @@ Grep "addEventListener|subscribe|setInterval" glob="*.ts,*.js,*.vue" → open
 Grep "removeEventListener|unsubscribe|clearInterval" glob="*.ts,*.js,*.vue" → close
 MLS = |open - close| / max(open, 1)
 
-# GSS: 段階的デプロイ指標
-Grep "canary|feature.?flag|rollout|blue.?green" glob="*.ts,*.yaml,*.yml,*.json"
-GSS = 1.0 if found else 0.0
+# GSS: グレースフルシャットダウン
+Grep "SIGTERM|SIGINT|beforeExit|graceful" glob="*.ts,*.js"
+Grep "server\.close|app\.close|drain|keepAliveTimeout" glob="*.ts,*.js"
+GSS = 1.0 (both) / 0.5 (signal only) / 0.0 (none)
 ```
 
 **Blind Spot (B1-B4):**
 ```bash
-# TSI: 型安全性指標
-Grep "\bas any\b|as unknown" glob="*.ts" output_mode="count"
-TSI = any_count / total_type_annotations (inverted)
+# TSI: TODO 放置指標
+Grep "TODO|FIXME|HACK|XXX" glob="*.ts,*.js,*.vue,*.jsx,*.tsx,*.py"
+# → git blame で各 TODO の最終更新日を取得 (90日超過 = stale)
+TSI = stale_todos / total_todos (Ratio, inverted: 低い方が健全)
 
-# ITCR: 暗黙型変換率
-Grep "parseInt\(|Number\(|toString\(\)|JSON\.parse" glob="*.ts,*.js"
-# → 型変換箇所でのバリデーション有無
-ITCR = unvalidated / total_conversions
+# ITCR: 暗黙型変換リスク
+Grep "[^!=!]==[^=]" glob="*.ts,*.js"           # == (非厳密等値)
+Grep "[^!]!=[^=]" glob="*.ts,*.js"             # != (非厳密不等値)
+ITCR = count (Presence: 0 = healthy)
 
-# BVG: 境界値バリデーション
-Grep "\.length|\.size|\.count" glob="*.ts,*.js" → boundary_checks
-# → 0, null, undefined, MAX_SAFE_INTEGER のガード有無
-BVG = guarded / total_boundary
+# BVG: 入力バリデーション欠落率
+Grep "getQuery\(|readBody\(|req\.body|req\.query|req\.params" path="server/" glob="*.ts,*.js"
+Grep "zod|joi|yup|validate|schema|z\.\w+" path="server/" glob="*.ts,*.js"
+BVG = validated_endpoints / total_input_endpoints
 
-# DFS: 依存鮮度
-# package.json の dependencies を確認し、major version の古さを推定
+# DFS: 依存管理品質
+Glob "pnpm-lock.yaml" OR Glob "package-lock.json" OR Glob "yarn.lock"
+Grep '"\\^|"~' glob="package.json"
+DFS = (has_lockfile × 0.4) + (pinned_ratio × 0.3) + (no_dangerous_scripts × 0.3)
 ```
 
 ### 3. Composite Score 算出
 
-```
-Ghost    = 0.30×CFR + 0.30×EHD + 0.15×ESR + 0.15×HLR + 0.10×RRR
-Fragile  = 0.15×NCI + 0.10×CSS' + 0.20×TCR + 0.20×AGC + 0.10×SEC' + 0.10×RPC + 0.10×MLS' + 0.05×GSS
-BlindSpot = 0.25×TSI' + 0.20×ITCR' + 0.30×BVG + 0.25×DFS
-Overall  = 0.40×Ghost + 0.35×Fragile + 0.25×BlindSpot
-```
-
-`'` 付きは反転変換済み (quantitative-parameters.md 参照)
+`references/quantitative-parameters.md` の Composite Scores セクションに従い算出。
+`'` 付きパラメーターは反転変換済み (同ファイル参照)。
+Overall = 0.40×Ghost + 0.35×Fragile + 0.25×BlindSpot
 
 ### 4. スコア表示
 
