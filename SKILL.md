@@ -22,10 +22,10 @@ description: コードの「違和感」を定量的に検出 — Ghost(動か�
 | | | L3 状態同期バグ | ESR (Event Subscription Ratio) |
 | | | L4 死んだ機能 | HLR, RRR (Handler/Route Liveness) |
 | **Fragile** | 壊れやすいもの | L5 構造矛盾 | NCI, CSS (Naming/Config Consistency) |
-| | | L6 リソース浪費 | MLS (Memory Leak Symmetry) |
+| | | L6 リソース浪費 | — (N+1, 巨大ペイロード, 不要再計算) |
 | | | L7 セキュリティ欠陥 | AGC, SEC (Auth Guard/Secret Exposure) |
 | | | L8 信頼性リスク | TCR, RPC, GSS (Timeout/Resilience) |
-| **Blind Spot** | 見えないリスク | L9 暗黙知の罠 | BVG, TSI, DFS (Validation/Staleness) |
+| **Blind Spot** | 見えないリスク | L9 暗黙知の罠 | BVG, TSI, ITCR, DFS (Validation/Staleness/Coercion) |
 
 ## QAP (定量パラメーター)
 
@@ -47,10 +47,14 @@ description: コードの「違和感」を定量的に検出 — Ghost(動か�
 ```
 1. SCOPE   — 対象範囲を特定 (全体 / フロー / git diff)
 2. MEASURE — QAP パラメーターを計測 (grep/glob 並列)
-3. SCAN    — 9レイヤーをパターン検出 (Explore エージェント活用)
-4. TRIAGE  — QAP スコア + 重要度で分類
-5. REPORT  — スコア付きレポートを出力
+3. VERIFY  — LLM で偽陽性除去 (LM Studio / Qwen3-Coder-Next) [v3.0]
+4. TRIAGE  — adjusted QAP + confidence + 重要度で分類
+5. REPORT  — confidence 付きレポートを出力
 ```
+
+**v3.0 LLM 検証**: LM Studio (localhost:1234) で Qwen3-Coder-Next を使い、
+grep マッチが真の異常かを判定。偽陽性を除去し、confidence スコアで QAP を調整。
+`--grep-only` フラグで v2.0 互換モード。LM Studio 未起動時は自動フォールバック。
 
 ### Step 1: SCOPE
 ```
@@ -98,7 +102,9 @@ INFO:     QAP >= 0.80 だが改善余地あり
 
 ## 参照
 
-- `references/quantitative-parameters.md` — 17個の QAP 定義・計測方法・閾値・Composite Score
+- `references/quantitative-parameters.md` — 17個の QAP 定義・計測方法・閾値・Composite Score・Confidence 統合
+- `references/llm-verify.md` — LLM 検証パイプライン仕様 (LM Studio API, Qwen3-Coder-Next, バッチ処理)
+- `references/prompts/` — カテゴリ別 LLM 検証プロンプト (ghost/fragile/blindspot)
 - `references/detection-patterns.md` — L1-L6 スタック非依存 grep/glob クエリ集
 - `references/security-patterns.md` — L7: OWASP 2025 + API Security 2023 (42パターン)
 - `references/reliability-patterns.md` — L8: SRE/Chaos Engineering (28パターン)

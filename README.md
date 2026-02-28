@@ -1,47 +1,56 @@
 # Web Anomaly Detector
 
-> Detect code anomalies quantitatively — **Ghost** (broken), **Fragile** (breakable), **Blind Spot** (invisible risks) across 9 layers with 17 measurable parameters.
+**コードの「違和感」を数値で暴く** Claude Code スキル。
 
-コードの「違和感」を定量的に検出する Claude Code スキル。
-修正提案ではなく **発見・計測・分類** に特化。主観的な「何かおかしい」を数値で立証する。
-
-## Why
-
-静的解析ツールは構文エラーやリンターの違反を見つける。しかし「動くけど壊れやすい」「コード上は正しいが本番で障害を起こす」「開発者の暗黙の仮定に依存している」といった**違和感**は、既存ツールでは検出できない。
-
-Web Anomaly Detector は、この「違和感」を体系的に分類し、grep/glob ベースの計測で数値化する。
-
-### 検出できるもの
-
-- API の型定義と実際のレスポンスが一致しない (Ghost)
-- `catch(() => {})` でエラーが握り潰されている (Ghost)
-- WebSocket イベントが定義されているが購読されていない (Ghost)
-- 外部 API 呼び出しにタイムアウトが設定されていない (Fragile)
-- ハードコードされた秘密鍵がソースに埋まっている (Fragile)
-- `addEventListener` と `removeEventListener` の数が非対称 (Fragile)
-- `0.1 + 0.2` で金額計算している (Blind Spot)
-- `new Date()` のタイムゾーンを仮定している (Blind Spot)
-
-### 検出しないもの
-
-- コードスタイルの好み (ESLint の領域)
-- テストカバレッジの不足
-- ドキュメントの不備
-
-## Installation
-
-```bash
-# Clone to your Claude Code skills directory
-git clone https://github.com/ohyesiamy/web-anomaly-detector.git ~/.claude/skills/web-anomaly-detector
+```
+ あなたのコード                          レポート
+ ┌──────────┐    ┌─────────────────┐    ┌──────────────────────┐
+ │ catch(){} │───▶│  9 Layers Scan  │───▶│ Ghost:    0.72  ⚠   │
+ │ eval()    │    │  17 Parameters  │    │ Fragile:  0.85  ✓   │
+ │ no timeout│    │  130+ Patterns  │    │ BlindSpot:0.45  ✗   │
+ │ sk-key... │    │  LLM Verify     │    │ Overall:  0.68  ⚠   │
+ └──────────┘    └─────────────────┘    └──────────────────────┘
 ```
 
-Or manually copy the files into `~/.claude/skills/web-anomaly-detector/`.
+ESLint が見つけない。テストが通っていても壊れる。本番で初めて発覚する。
+そういう **違和感** を体系的に検出し、数値で立証する。
 
-> **Note**: `claude install github:...` は将来のマーケットプレイス対応を想定した記述です。現時点では上記の手動インストールを使用してください。
+---
 
-## Quick Start
+## 30秒で理解する
 
-Claude Code で以下のように話しかける:
+```
+  「何かおかしい」を数値化する
+
+  ┌─────────────────────────────────────────────────┐
+  │                                                 │
+  │    catch(() => {})  ──────▶  EHD = 0.3  ✗       │
+  │    エラー握り潰し            エラー処理率30%     │
+  │                                                 │
+  │    fetch() no timeout ────▶  TCR = 0.4  ⚠       │
+  │    タイムアウト未設定        タイムアウト率40%   │
+  │                                                 │
+  │    api_key = "sk-..."  ───▶  SEC = 3    ✗       │
+  │    秘密鍵ハードコード        3件露出             │
+  │                                                 │
+  │    0.1 + 0.2 で金額計算 ──▶  L9 BlindSpot ⚠     │
+  │    浮動小数点の罠            暗黙の仮定          │
+  │                                                 │
+  └─────────────────────────────────────────────────┘
+```
+
+---
+
+## インストール
+
+```bash
+git clone https://github.com/ohyesiamy/web-anomaly-detector.git \
+  ~/.claude/skills/web-anomaly-detector
+```
+
+## 使い方
+
+Claude Code に話しかけるだけ:
 
 ```
 「このプロジェクトの違和感を探して」
@@ -49,61 +58,166 @@ Claude Code で以下のように話しかける:
 「何かおかしいところはないか確認して」
 ```
 
-スキルが自動ロードされ、3カテゴリ × 9レイヤーのスキャンが実行される。
+---
 
-## Architecture
+## 3カテゴリ × 9レイヤー
 
-### 3 Categories × 9 Layers
-
-違和感を3つのカテゴリに分類する。各カテゴリは複数のレイヤーを持つ。
+違和感を **3つの問い** で分類する。
 
 ```
-Ghost (動かないもの)
-├── L1: Contract Mismatch    — 型定義と API の不一致
-├── L2: Silent Failure       — エラーが飲み込まれる
-├── L3: State Sync Bug       — リアルタイム更新の欠落
-└── L4: Dead Feature         — UI に存在するが動かない
-
-Fragile (壊れやすいもの)
-├── L5: Structural Contradiction — 命名・設定の矛盾
-├── L6: Resource Waste           — N+1, メモリリーク
-├── L7: Security Vulnerability   — OWASP Top 10 2025
-└── L8: Reliability Risk         — タイムアウト, Circuit Breaker
-
-Blind Spot (見えないリスク)
-└── L9: Implicit Knowledge Trap  — 開発者の暗黙の仮定
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                                                                 │
+  │  Ghost 👻                Fragile 🔨              Blind Spot 🕳  │
+  │  "動くの？"              "壊れない？"             "見えてる？"    │
+  │                                                                 │
+  │  ┌─────────────────┐   ┌─────────────────┐   ┌──────────────┐  │
+  │  │ L1 契約不一致    │   │ L5 構造矛盾     │   │ L9 暗黙知    │  │
+  │  │ L2 サイレント失敗│   │ L6 リソース浪費 │   │    の罠      │  │
+  │  │ L3 状態同期バグ  │   │ L7 セキュリティ │   │              │  │
+  │  │ L4 死んだ機能    │   │ L8 信頼性リスク │   │  12ドメイン  │  │
+  │  └─────────────────┘   └─────────────────┘   │  32パターン  │  │
+  │                                               └──────────────┘  │
+  │   5 QAP パラメーター     8 QAP パラメーター    4 QAP パラメーター │
+  └─────────────────────────────────────────────────────────────────┘
 ```
 
-### QAP (Quantitative Anomaly Parameters)
+### 各レイヤーの具体例
 
-「何かおかしい」を 17 個のパラメーターで数値化する。全て grep/glob で計測可能。
-4 計測タイプ: **Ratio** (→1.0 healthy), **Presence** (0 healthy), **Symmetry** (0.0 healthy), **Scatter** (1.0 healthy)
+```
+  L1 契約不一致        型定義: { name: string }
+                       API実態: { name: "太郎", nickname: "タロー" }
+                       → nickname が型にない → CFR 低下
 
-Ghost: CFR (契約一致率), EHD (エラー処理率), ESR (イベント購読率), HLR (ハンドラ実装率), RRR (ルート到達率)
-Fragile: NCI (命名一貫性), CSS (設定散在度), TCR (タイムアウト率), AGC (認証保護率), SEC (秘密鍵露出), RPC (耐障害率), MLS (リソース対称性), GSS (シャットダウン)
-Blind Spot: TSI (TODO放置), ITCR (暗黙型変換), BVG (バリデーション欠落), DFS (依存管理品質)
+  L2 サイレント失敗    try { await api.post() }
+                       catch(e) { }          ← 何もしない
+                       → エラーが闇に消える → EHD 低下
 
-全パラメーター定義・計測方法・閾値: [`references/quantitative-parameters.md`](references/quantitative-parameters.md)
+  L3 状態同期バグ      server: emit("price_update", data)
+                       client: // 誰も listen していない
+                       → リアルタイム更新が届かない → ESR 低下
+
+  L4 死んだ機能        <button @click="handleSubmit">送信</button>
+                       function handleSubmit() { /* TODO */ }
+                       → ボタンを押しても何も起きない → HLR 低下
+
+  L5 構造矛盾          .env:    API_URL=https://api.example.com
+                       config:  apiUrl: "http://localhost:3000"
+                       → どっちが正しいの？ → CSS 上昇
+
+  L6 リソース浪費      for (const user of users) {
+                         await fetch(`/api/profile/${user.id}`)
+                       }
+                       → N+1 問題。100人 = 100リクエスト
+
+  L7 セキュリティ      const API_KEY = "sk-proj-abc123..."
+                       → ソースに秘密鍵が埋まっている → SEC 検出
+
+  L8 信頼性リスク      await fetch("https://external-api.com/data")
+                       → タイムアウト未設定 = 無限待機 → TCR 低下
+
+  L9 暗黙知の罠        const total = price * 1.1  // 消費税
+                       → 0.1 + 0.2 !== 0.3 の世界 → 金額計算に浮動小数点
+```
+
+---
+
+## パイプライン (v3.1)
+
+```
+  ┌─────────┐     ┌──────────┐     ┌───────────┐     ┌─────────┐     ┌────────┐
+  │  SCOPE  │────▶│ MEASURE  │────▶│  VERIFY   │────▶│ TRIAGE  │────▶│ REPORT │
+  │         │     │          │     │           │     │         │     │        │
+  │ 対象特定 │     │ 17 QAP   │     │ LLM 検証  │     │ 重要度   │     │ スコア  │
+  │ ・全体   │     │ grep/glob│     │ Qwen3     │     │ 分類     │     │ 表付き  │
+  │ ・差分   │     │ 並列計測  │     │ 偽陽性除去│     │ C/W/I   │     │ 出力    │
+  │ ・パス   │     │          │     │ confidence│     │         │     │        │
+  └─────────┘     └──────────┘     └───────────┘     └─────────┘     └────────┘
+                                         │
+                                    LM Studio 未起動時
+                                    自動フォールバック
+                                    → grep-only mode
+```
+
+### v3.0 からの進化
+
+| | v2.0 | v3.1 |
+|---|---|---|
+| 検出 | grep/glob のみ | grep/glob → **LLM 検証** |
+| 偽陽性 | そのまま出力 | confidence score で除去 |
+| スコア | raw QAP | **adjusted QAP** |
+| フック | **動作せず** (環境変数前提) | **stdin JSON 対応** (修正済) |
+| 後方互換 | — | `--grep-only` で v2.0 同等 |
+
+---
+
+## QAP: 17個の定量パラメーター
+
+「何かおかしい」を **4種類の計測** で数値化する。
+
+```
+  ┌──────────────────────────────────────────────────────────────┐
+  │                    4つの計測タイプ                            │
+  │                                                              │
+  │  Ratio     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▶ 1.0       │
+  │  (比率)    matching / total        健全 → 1.0               │
+  │                                                              │
+  │  Presence  ●                                                 │
+  │  (存在)    count of anti-patterns  健全 = 0                  │
+  │                                                              │
+  │  Symmetry  ◀━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▶           │
+  │  (対称性)  |open - close| / max    健全 → 0.0               │
+  │                                                              │
+  │  Scatter   ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·              │
+  │  (散在度)  定義箇所 / キー数       健全 = 1.0               │
+  └──────────────────────────────────────────────────────────────┘
+```
+
+### 全パラメーター一覧
+
+| # | QAP | 名前 | タイプ | Cat | 健全値 |
+|---|-----|------|--------|-----|--------|
+| 1 | **CFR** | 契約一致率 | Ratio | Ghost | → 1.0 |
+| 2 | **EHD** | エラー処理率 | Ratio | Ghost | → 1.0 |
+| 3 | **ESR** | イベント購読率 | Ratio | Ghost | → 1.0 |
+| 4 | **HLR** | ハンドラ実装率 | Ratio | Ghost | → 1.0 |
+| 5 | **RRR** | ルート到達率 | Ratio | Ghost | → 1.0 |
+| 6 | **NCI** | 命名一貫性 | Ratio | Fragile | → 1.0 |
+| 7 | **CSS** | 設定散在度 | Scatter | Fragile | = 1.0 |
+| 8 | **TCR** | タイムアウト率 | Ratio | Fragile | → 1.0 |
+| 9 | **AGC** | 認証保護率 | Ratio | Fragile | → 1.0 |
+| 10 | **SEC** | 秘密鍵露出 | Presence | Fragile | = 0 |
+| 11 | **RPC** | 耐障害率 | Ratio | Fragile | → 1.0 |
+| 12 | **MLS** | リソース対称性 | Symmetry | Fragile | → 0.0 |
+| 13 | **GSS** | シャットダウン | Presence | Fragile | = 1 |
+| 14 | **TSI** | TODO放置率 | Ratio | Blind Spot | → 0.0 |
+| 15 | **ITCR** | 暗黙型変換 | Presence | Blind Spot | = 0 |
+| 16 | **BVG** | バリデーション欠落 | Ratio | Blind Spot | → 1.0 |
+| 17 | **DFS** | 依存管理品質 | Ratio | Blind Spot | → 1.0 |
 
 ### Composite Scoring
 
-個別パラメーターを重み付けして各カテゴリのスコアを算出し、Overall に統合する。
+```
+  Ghost Score     = 0.30×CFR + 0.30×EHD + 0.15×ESR + 0.15×HLR + 0.10×RRR
+  Fragile Score   = 0.15×NCI + 0.10×(1/CSS) + 0.20×TCR + 0.20×AGC + ...
+  BlindSpot Score = 0.25×(1-TSI) + 0.20×ITCR_norm + 0.30×BVG + 0.25×DFS
 
-`Overall = 0.40×Ghost + 0.35×Fragile + 0.25×BlindSpot`
+  ┌─────────────────────────────────────────────────────┐
+  │                                                     │
+  │  Overall = 0.40 × Ghost                             │
+  │         + 0.35 × Fragile     ◀── 本番障害の主因     │
+  │         + 0.25 × BlindSpot   ◀── 長期的リスク       │
+  │                                                     │
+  │  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  │
+  │  0.0          0.50          0.80              1.0   │
+  │  ✗ Critical   ⚠ Warning     ✓ Healthy              │
+  └─────────────────────────────────────────────────────┘
+```
 
-| Score | Status | Action |
-|-------|--------|--------|
-| >= 0.80 | Healthy | 軽微な改善のみ |
-| 0.50 - 0.80 | Warning | 計画的に対処 |
-| < 0.50 | Critical | 即座に対処 |
+---
 
-公式詳細・適応的閾値: [`references/quantitative-parameters.md`](references/quantitative-parameters.md)
-
-## Commands
+## コマンド
 
 ### `/web-anomaly-detector:scan`
-
-プロジェクト全体を 3カテゴリ × 9レイヤーでスキャンし、QAP スコア付きレポートを出力する。
 
 ```bash
 /web-anomaly-detector:scan           # 全体スキャン
@@ -111,7 +225,29 @@ Blind Spot: TSI (TODO放置), ITCR (暗黙型変換), BVG (バリデーション
 /web-anomaly-detector:scan path:src/ # 特定ディレクトリ
 ```
 
-3つの Explore エージェントを並列起動して検出を高速化する。
+3つの Explore エージェントが並列で 9レイヤーをスキャン:
+
+```
+  ┌─────────┐
+  │  scan   │
+  └────┬────┘
+       │
+  ┌────┴────┬────────────┬────────────┐
+  ▼         ▼            ▼            │
+Agent A   Agent B     Agent C         │
+Ghost     Fragile    Blind Spot       │
+L1-L4     L5-L8       L9             │
+  │         │            │            │
+  └────┬────┴────────────┘            │
+       ▼                              │
+  ┌──────────┐                        │
+  │  TRIAGE  │  ◀── LLM 検証 (opt)   │
+  └────┬─────┘                        │
+       ▼                              │
+  ┌──────────┐                        │
+  │  REPORT  │                        │
+  └──────────┘                        │
+```
 
 **出力例:**
 
@@ -127,190 +263,188 @@ Blind Spot: TSI (TODO放置), ITCR (暗黙型変換), BVG (バリデーション
 | **Overall**| **0.68** | **WARNING** |
 
 ### CRITICAL (2件)
-| # | Cat | Layer | QAP     | Location           | Symptom              | Root Cause            |
-|---|-----|-------|---------|--------------------|----------------------|-----------------------|
-| 1 | BS  | L9    | BVG=0.4 | server/api/user.ts:17 | 入力バリデーションなし | zod スキーマ未適用     |
-| 2 | G   | L2    | EHD=0.3 | lib/api-client.ts:42 | 空 catch ブロック     | エラーがログされない   |
-
-### WARNING (5件) ...
-### INFO (3件) ...
+| # | Cat | Layer | QAP     | Location              | Symptom            |
+|---|-----|-------|---------|-----------------------|--------------------|
+| 1 | BS  | L9    | BVG=0.4 | server/api/user.ts:17 | バリデーションなし  |
+| 2 | G   | L2    | EHD=0.3 | lib/api-client.ts:42  | 空 catch ブロック   |
 ```
 
 ### `/web-anomaly-detector:score`
 
-QAP 17パラメーターの数値計算のみを実行する軽量版。パターン検出は行わない。
+QAP 数値計算のみの軽量版。パターン検出は行わない。
 
 ```bash
 /web-anomaly-detector:score           # 全体
 /web-anomaly-detector:score path:api/ # 特定ディレクトリ
 ```
 
-**出力例:**
+---
+
+## パッシブ検出フック
+
+ファイル編集のたびに自動実行される軽量チェック。**非ブロッキング** — 編集を止めない。
 
 ```
-## QAP Score: my-project
-
-| Category   | Score | Status  | Key Factors          |
-|------------|-------|---------|----------------------|
-| Ghost      | 0.82  | Healthy | CFR=0.95, EHD=0.71   |
-| Fragile    | 0.65  | WARNING | AGC=0.60, TCR=0.40   |
-| Blind Spot | 0.71  | WARNING | BVG=0.55, TSI=0.30   |
-| **Overall**| **0.73** | **WARNING** |                 |
+  あなたが Edit する
+       │
+       ▼
+  ┌──────────────────┐     ┌───────────────────────────────────┐
+  │ passive-detect.sh│────▶│ ⚠ [L2] Empty catch block detected │
+  │ (stdin JSON)     │     │ ⚠ [L7] Possible hardcoded secret  │
+  └──────────────────┘     └───────────────────────────────────┘
+       │
+  検出対象:
+  ├── L2: 空 catch, silent .catch(), except: pass
+  └── L7: 秘密鍵, eval(), innerHTML, SQL 結合
 ```
 
-## Passive Detection Hook
-
-ファイル編集のたびに軽量チェックが自動実行される (`PostToolUse:Edit`)。
-
-検出対象:
-- **L2**: 空 catch ブロック、silent `.catch()`、Python の `except: pass`
-- **L7**: ハードコード秘密鍵、`eval()` 使用、`innerHTML` 代入、SQL 文字列結合
-
-非ブロッキング — 編集を止めることはない。違和感がある場合のみ警告を表示する。
+---
 
 ## Aufheben Agent
 
-検出→分類→**並列修正**→検証を一気通貫で実行するエージェント。
+検出 → 分類 → **並列修正** → 検証を一気通貫で実行。
 
 ```
-「違和感を見つけて修正して」
 「アウフヘーベンして」
+「違和感を見つけて修正して」
 ```
 
-Phase:
+```
+  ┌─────────┐   ┌────────┐   ┌────────┐   ┌───────┐   ┌────────┐   ┌────────┐
+  │  RECON  │──▶│ DETECT │──▶│ TRIAGE │──▶│  FIX  │──▶│ VERIFY │──▶│ REPORT │
+  │ Stack検出│   │ 3並列   │   │ 分類    │   │ N並列  │   │ Build  │   │ 統合   │
+  └─────────┘   └────────┘   │AUTO-FIX│   └───────┘   │ Test   │   └────────┘
+                              │MANUAL  │               │ Types  │
+                              │SKIP    │               └────────┘
+                              └────────┘
+
+  安全装置:
+  ✓ git stash でスナップショット保存
+  ✓ fix/aufheben-{timestamp} ブランチで作業
+  ✓ ビルド失敗 → 即 revert
+  ✓ 1回の実行で最大20件まで
+```
+
+---
+
+## 検出パターン: 130+
 
 ```
-0. RECON   — プロジェクトスタックを自動検出
-1. DETECT  — Explore エージェント×3 で並列検出
-2. TRIAGE  — AUTO-FIX / MANUAL-REVIEW / SKIP に分類
-3. FIX     — general-purpose エージェント×N で並列修正
-4. VERIFY  — ビルド + テスト + 型チェック
-5. REPORT  — 統合レポート出力
+  ┌──────────────────────────────────────────────────────────────┐
+  │                   130+ Detection Patterns                    │
+  │                                                              │
+  │  L1-L6  General ·········· 28 patterns                      │
+  │  ├ L1 契約不一致           5  (ID, 型, 定数, HTTP, API)      │
+  │  ├ L2 サイレント失敗       4  (空catch, fire&forget, ...)    │
+  │  ├ L3 状態同期バグ         4  (event, SSE/WS, dedup, poll)  │
+  │  ├ L4 死んだ機能           5  (空handler, 非表示UI, ...)     │
+  │  ├ L5 構造矛盾             5  (命名, 設定散在, 循環import)  │
+  │  └ L6 リソース浪費         5  (N+1, 巨大payload, bundle)    │
+  │                                                              │
+  │  L7  Security ············ 42 patterns (OWASP 2025)         │
+  │  ├ A01 アクセス制御        Auth, IDOR, CORS, SSRF           │
+  │  ├ A02 暗号失敗            秘密鍵, 弱ハッシュ, HTTP          │
+  │  ├ A03 インジェクション    SQL, XSS, コマンド, パス           │
+  │  └ A04-A10                 設計, 設定, 脆弱性, 認証...       │
+  │                                                              │
+  │  L8  Reliability ········· 28 patterns (SRE)                │
+  │  ├ Timeout                 HTTP, DB, WS, DNS                 │
+  │  ├ Retry                   Storm, backoff, 冪等性            │
+  │  └ Circuit Breaker         CB欠如, カスケード障害            │
+  │                                                              │
+  │  L9  Implicit Knowledge ·· 32 patterns (12 domains)         │
+  │  ├ 時間/日付               TZ, DST, timestamp一意性          │
+  │  ├ 文字列/Unicode          .length, ロケール, \w             │
+  │  ├ 数値/通貨               浮動小数点, 通貨桁, MAX_SAFE_INT  │
+  │  └ ネットワーク/DB/認証... 冪等性, NULL, セッション固定      │
+  └──────────────────────────────────────────────────────────────┘
 ```
 
-安全装置:
-- 修正前に `git stash` でスナップショット保存
-- `fix/aufheben-{timestamp}` ブランチで作業
-- ビルド失敗 → 即 revert
-- 1回の実行で最大20件まで
+---
 
-## Detection Pattern Coverage
+## 対応フレームワーク
 
-### L1-L6: General Detection (references/detection-patterns.md)
+スタック非依存。プロジェクトを自動検出してクエリを適応。
 
-| Layer | Patterns | Scope |
-|-------|----------|-------|
-| L1 Contract Mismatch | 5 patterns | ID suffix, type drift, hardcoded constants, HTTP status, API endpoint |
-| L2 Silent Failure | 4 patterns | Empty catch, fire-and-forget, no-log catch, fallback hiding |
-| L3 State Sync Bug | 4 patterns | Event subscribe gap, SSE/WS mismatch, dedup weakness, poll vs push |
-| L4 Dead Feature | 5 patterns | Empty handler, always-hidden UI, orphan route, unused hook, unused export |
-| L5 Structural Contradiction | 5 patterns | Stale comment, config scatter, naming clash, circular import, dead code ref |
-| L6 Resource Waste | 5 patterns | N+1 fetch, huge payload, unnecessary recompute, unnecessary re-render, bundle bloat |
+```
+  Frontend          Backend             Build
+  ┌──────────┐     ┌──────────────┐    ┌───────────┐
+  │ Vue/Nuxt │     │ Node/Express │    │ pnpm      │
+  │ React/   │     │ Nitro/Hono   │    │ npm/yarn  │
+  │   Next.js│     │ Fastify/tRPC │    │ bun       │
+  │ Svelte/  │     │ Python/      │    │ cargo     │
+  │   Kit    │     │   FastAPI    │    │ go build  │
+  │ Angular  │     │ Go / Rust    │    │ pip       │
+  └──────────┘     └──────────────┘    └───────────┘
+```
 
-### L7: Security (references/security-patterns.md)
+---
 
-OWASP Top 10 2025 + API Security Top 10 2023 から 42 パターン。
+## 実例: 本番障害から学ぶ
 
-| OWASP Category | Patterns |
-|----------------|----------|
-| A01 Broken Access Control | Auth check missing, IDOR, CORS, SSRF |
-| A02 Cryptographic Failures | Hardcoded secrets, weak hash, missing HTTPS |
-| A03 Injection | SQL injection, XSS, command injection, path traversal |
-| A04 Insecure Design | Mass assignment, rate limit missing |
-| A05 Security Misconfiguration | Debug mode, default credentials, verbose errors |
-| A06 Vulnerable Components | Known CVE, outdated dependencies |
-| A07 Auth Failures | Weak password policy, session fixation, JWT misconfiguration |
-| A08 Data Integrity Failures | Unsigned updates, deserialization, CI/CD poisoning |
-| A09 Logging Failures | Missing audit log, PII in logs |
-| A10 SSRF | URL validation, DNS rebinding |
+```
+  ┌──────────────────────────────────────────────────────────────┐
+  │  Case Archive: 12 real-world incidents                       │
+  │                                                              │
+  │  Ghost (3)                                                   │
+  │  ├── Ollama ID: "nomic-embed-text" vs ":latest" → L1 不一致 │
+  │  ├── WebSocket dedup: タイムスタンプ重複 → L3 同期バグ       │
+  │  └── fire-and-forget: await 漏れ → L2 サイレント失敗         │
+  │                                                              │
+  │  Fragile (5)                                                 │
+  │  ├── CrowdStrike: NULL pointer → 8.5M台 BSOD  → L8 信頼性  │
+  │  ├── Cloudflare DNS: 設定不一致 → L5 構造矛盾               │
+  │  ├── GitHub Actions: secret 漏洩 → L7 セキュリティ          │
+  │  ├── OpenAI API: レート制限欠如 → L8 信頼性                  │
+  │  └── Zoom: 暗号化誤表示 → L5 構造矛盾                       │
+  │                                                              │
+  │  Blind Spot (4)                                              │
+  │  ├── AWS S3: リージョン仮定 → L9 暗黙知                     │
+  │  ├── JS Date: month が 0始まり → L9 暗黙知                  │
+  │  ├── UTF-8 BOM: 不可視文字 → L9 暗黙知                      │
+  │  └── 浮動小数点: 0.1+0.2 金額計算 → L9 暗黙知               │
+  │                                                              │
+  │  ⚠ L8+L9 が12件中8件。本番で初めて発覚するタイプ。           │
+  └──────────────────────────────────────────────────────────────┘
+```
 
-### L8: Reliability (references/reliability-patterns.md)
-
-SRE / Chaos Engineering から 28 パターン。
-
-| Category | Patterns |
-|----------|----------|
-| Timeout | HTTP, DB, WebSocket, DNS |
-| Retry | Retry storm, backoff, idempotency |
-| Circuit Breaker | Missing CB, cascading failure |
-| Bulkhead | Thread pool isolation, queue limits |
-| Health Check | Liveness, readiness, dependency check |
-| Graceful Shutdown | Signal handling, drain logic |
-| Observability | Structured logging, metrics, tracing |
-| Data Integrity | Transaction boundary, idempotent writes |
-
-### L9: Implicit Knowledge (references/implicit-knowledge.md)
-
-開発者の暗黙の仮定に潜む 32 パターン、12 ドメイン。
-
-| Domain | Patterns | Examples |
-|--------|----------|---------|
-| T1 Time/Date | 4 | Timezone, DST, timestamp uniqueness, date format |
-| T2 String/Unicode | 3 | `.length` != chars, case conversion locale, `\w` is ASCII |
-| T3 Names | 2 | Name validation assumptions, email regex |
-| T4 Numbers/Currency | 3 | Float money (`0.1+0.2`), currency decimals, MAX_SAFE_INTEGER |
-| T5 Network | 3 | Idempotency, DNS assumptions, Content-Type trust |
-| T6 Filesystem | 2 | Path separators, filename safety |
-| T7 Database | 3 | AUTO_INCREMENT gaps, transaction isolation, NULL logic |
-| T8 Auth | 3 | Client-only auth, JWT assumptions, session fixation |
-| T9 Pagination | 2 | OFFSET scaling, search injection |
-| T10 Cache | 2 | Cache consistency, Cache-Control |
-| T11 Concurrency | 2 | Node.js race conditions, Promise.all partial failure |
-| T12 Environment | 3 | Env var existence, read-only FS, env parity |
-
-### Case Archive (references/case-archive.md)
-
-実際のバグと本番障害から 12 事例を収録。
-
-| Category | Cases | Source |
-|----------|-------|--------|
-| Ghost | 3 | Ollama ID mismatch, WebSocket dedup, fire-and-forget |
-| Fragile | 5 | CrowdStrike (8.5M BSOD), Cloudflare DNS, GitHub Actions secrets, OpenAI API, Zoom |
-| Blind Spot | 4 | AWS S3 region, JS Date month, UTF-8 BOM, floating point money |
-
-**Observation**: L8 (Reliability) and L9 (Implicit Knowledge) account for 8 of 12 production incidents. Ghost failures surface during development; Fragile and Blind Spot issues hide until production.
-
-## Framework Support
-
-Stack-agnostic. Detects project type automatically and adapts queries.
-
-| Category | Supported |
-|----------|-----------|
-| **Frontend** | Vue/Nuxt, React/Next.js, Svelte/SvelteKit, Angular |
-| **Backend** | Node.js/Express/Nitro, Python/Django/FastAPI, Go, Rust |
-| **Build** | pnpm, npm, yarn, bun, cargo, go build, pip |
+---
 
 ## Research Backing
 
-| Source | Contribution |
-|--------|-------------|
-| CK Metrics (Chidamber & Kemerer 1994) | CBO/WMC/RFC threshold baselines |
-| Shannon Entropy (2025 Springer) | Information-theoretic anomaly detection, 60%+ precision |
-| JIT Defect Prediction (2024-2025) | Process metrics outperform code complexity metrics |
-| OWASP Top 10 2025 | Security threshold evidence |
-| Google SRE (2024) | Reliability pattern severity evidence |
+| Source | 貢献 |
+|--------|------|
+| CK Metrics (1994) | CBO/WMC/RFC 閾値のベースライン |
+| Shannon Entropy (2025) | 情報理論ベースの異常検出、60%+ precision |
+| JIT Defect Prediction (2024-2025) | プロセスメトリクスの優位性を確認 |
+| OWASP Top 10 (2025) | セキュリティ閾値の根拠 |
+| Google SRE (2024) | 信頼性パターンの重大度根拠 |
+
+---
 
 ## File Structure
 
 ```
 web-anomaly-detector/
-├── SKILL.md                        # Core skill definition (~110 lines)
-├── README.md                       # This file
-├── marketplace.json                # Marketplace distribution metadata
+├── SKILL.md                        # スキル定義 (エントリポイント)
+├── README.md
+├── marketplace.json
 ├── .claude-plugin/
-│   └── plugin.json                 # Plugin manifest (skills, agents, hooks, commands)
+│   └── plugin.json                 # プラグインマニフェスト
 ├── commands/
-│   ├── scan.md                     # /web-anomaly-detector:scan command
-│   └── score.md                    # /web-anomaly-detector:score command
+│   ├── scan.md                     # /scan コマンド
+│   └── score.md                    # /score コマンド
 ├── hooks/
-│   └── passive-detect.sh           # PostToolUse:Edit passive detection hook
+│   └── passive-detect.sh           # パッシブ検出フック
 └── references/
-    ├── quantitative-parameters.md  # 17 QAP definitions, formulas, thresholds (396 lines)
-    ├── detection-patterns.md       # L1-L6 grep/glob queries, multi-framework (322 lines)
-    ├── security-patterns.md        # L7: OWASP 2025 + API Security 2023 — 42 patterns (445 lines)
-    ├── reliability-patterns.md     # L8: SRE/Chaos Engineering — 28 patterns (341 lines)
-    ├── implicit-knowledge.md       # L9: 12 domains, 32 patterns (416 lines)
-    └── case-archive.md             # 12 real-world incidents (125 lines)
+    ├── quantitative-parameters.md  # 17 QAP 定義・公式・閾値
+    ├── detection-patterns.md       # L1-L6 grep/glob クエリ集
+    ├── security-patterns.md        # L7: OWASP 2025 — 42 patterns
+    ├── reliability-patterns.md     # L8: SRE — 28 patterns
+    ├── implicit-knowledge.md       # L9: 12 domains, 32 patterns
+    ├── llm-verify.md               # LLM 検証パイプライン仕様
+    ├── prompts/                    # カテゴリ別 LLM 検証プロンプト
+    └── case-archive.md             # 実例集: 12 本番障害
 ```
 
 ## License

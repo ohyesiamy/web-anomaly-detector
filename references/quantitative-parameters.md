@@ -324,7 +324,7 @@ Ghost = 0.30 × CFR
 ### Fragile Score (耐障害性)
 ```
 Fragile = 0.15 × NCI
-        + 0.10 × (1/CSS)      # scatter の逆数 (1.0 が最良)
+        + 0.10 × (1/max(CSS, 1.0))  # scatter の逆数 (1.0 が最良, CSS=0 ガード)
         + 0.20 × TCR
         + 0.20 × AGC
         + 0.10 × (1-SEC_norm)  # SEC_norm = min(1, SEC/3)
@@ -337,13 +337,17 @@ Fragile = 0.15 × NCI
 ```
 BlindSpot = 0.25 × (1-TSI)        # staleness の逆
           + 0.20 × ITCR_norm      # ITCR_norm = max(0, 1 - ITCR/20)
-          + 0.30 × BVG
-          + 0.25 × DFS
+          + 0.30 × BVG            # 20 = 中規模プロジェクト (~50ファイル) での経験的上限。
+          + 0.25 × DFS            # 大規模プロジェクトでは適応的閾値で調整。
 ```
 
 ### Overall Anomaly Score (OAS)
 ```
 OAS = 0.40 × Ghost + 0.35 × Fragile + 0.25 × BlindSpot
+# Weight rationale:
+# Ghost 0.40 — 動作しないコードは最も致命的 (ユーザー影響直結)
+# Fragile 0.35 — 壊れやすさは本番障害の主因 (CrowdStrike等)
+# BlindSpot 0.25 — 潜在リスクは長期的だが即座の影響は少ない
 ```
 
 | Score Range | Status | Action |
@@ -363,6 +367,13 @@ CK metrics 研究の知見: 普遍的閾値は存在しない。プロジェク�
 | Prototype / MVP | WARNING 閾値を 20% 緩和 | 速度優先、後で改善 |
 | Production | 標準閾値を使用 | バランス |
 | Financial / Medical | WARNING 閾値を 15% 厳格化 | 規制・安全要件 |
+
+### 適応的 OAS 閾値
+| Context | Healthy | Warning | Critical |
+|---------|---------|---------|----------|
+| MVP/Prototype | >= 0.65 | 0.35-0.65 | < 0.35 |
+| Production | >= 0.80 | 0.50-0.80 | < 0.50 |
+| Financial/Medical | >= 0.85 | 0.55-0.85 | < 0.55 |
 | Monolith | CSS 閾値を緩和 | config 集中は許容 |
 | Microservices | TCR/RPC/GSS 閾値を厳格化 | resilience 必須 |
 | Static site / SSG | L3/L8 をスキップ | リアルタイム・SRE 不要 |
@@ -378,6 +389,78 @@ MVP/Prototype:
   AGC threshold: >= 0.76 Normal (標準 0.95 から緩和)
   EHD threshold: >= 0.64 Normal (標準 0.8 から緩和)
 ```
+
+---
+
+## LLM Confidence Integration (v3.0)
+
+grep/glob 計測の raw QAP に、LM Studio (Qwen3-Coder-Next) の検証結果を統合する。
+
+### Damped Multiplication Formula
+
+```
+adjusted_QAP = raw_QAP × (0.5 + 0.5 × avg_confidence)
+```
+
+| avg_confidence | Multiplier | QAP Effect |
+|---------------|-----------|------------|
+| 1.0 | 1.00 | 変化なし (全件が真の異常) |
+| 0.8 | 0.90 | 10% 緩和 |
+| 0.5 | 0.75 | 25% 緩和 (未検証デフォルト) |
+| 0.3 | 0.65 | 35% 緩和 |
+| 0.0 | 0.50 | 50% に低下 (完全否定でも半分保持) |
+
+**設計意図**: 完全乗算 (`raw × confidence`) は confidence=0.3 で QAP が 70% 減少し過剰補正になる。
+緩和乗算は最低でも 50% を保持し、grep 検出の価値を完全に否定しない。
+
+### Per-Parameter Aggregation
+
+```
+For QAP parameter P (e.g., EHD):
+  matches_P = grep matches contributing to P
+  verified_P = matches where LLM verification was performed
+
+  if |verified_P| > 0:
+    anomaly_confs = [m.confidence for m in verified_P where m.is_anomaly == true]
+    if |anomaly_confs| > 0:
+      avg_confidence_P = mean(anomaly_confs)
+    else:
+      avg_confidence_P = 0.0  # all verified as FALSE_POSITIVE
+    adjusted_P = raw_P × (0.5 + 0.5 × avg_confidence_P)
+  else:
+    adjusted_P = raw_P  # no LLM data → use raw
+```
+
+### Unverified Match Default
+
+バッチ上限超過で LLM 検証されなかったマッチ: `confidence = 0.5`
+→ `(0.5 + 0.5 × 0.5) = 0.75` → QAP の 75% が保持される。
+
+### Adjusted Composite Scores
+
+Composite Score 算出時は `adjusted_QAP` を使用:
+```
+Ghost_adj    = formula(adjusted_CFR, adjusted_EHD, ...)
+Fragile_adj  = formula(adjusted_NCI, adjusted_CSS, ...)
+BlindSpot_adj = formula(adjusted_TSI, adjusted_ITCR, ...)
+OAS_adj = 0.40 × Ghost_adj + 0.35 × Fragile_adj + 0.25 × BlindSpot_adj
+```
+
+### grep-only Mode
+
+`--grep-only` フラグ時は `adjusted = raw` (v2.0 同等動作)。
+
+### Model Specification
+
+| Setting | Value |
+|---------|-------|
+| Model | Qwen3-Coder-Next (80B/3B MoE) |
+| Format | MLX 8bit (M3 Ultra) |
+| API | LM Studio `/api/v0/chat/completions` |
+| Temperature | 0.1 |
+| Response | `json_schema` (構造化出力) |
+
+詳細: `references/llm-verify.md`
 
 ---
 

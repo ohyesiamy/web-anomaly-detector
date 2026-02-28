@@ -3,6 +3,11 @@
 スタック非依存。各パターンにマルチフレームワーク対応の grep/glob クエリを付記。
 実例アーカイブは `case-archive.md` を参照。
 
+**重要**: `path="server/"` 等の指定ディレクトリが存在しない場合、
+grep は 0 件を返す。0/0 は「問題なし」ではなく「計測不能 (N/A)」として扱うこと。
+QAP 算出時に分母=0 の場合は該当パラメーターをスキップし、
+残りのパラメーターで重みを再配分する。
+
 ---
 
 ## L1: 契約不一致 (Contract Mismatch)
@@ -56,6 +61,9 @@ Glob "server/api/**/*.ts"              # Nitro/Nuxt
 Glob "app/api/**/*.ts"                 # Next.js
 Glob "src/routes/**/*.ts"              # SvelteKit/Express
 Grep "router\.\w+\(['\"]/" glob="*.ts,*.js"  # Manual routing
+Grep "app\.\w+\(['\"]/" glob="*.ts,*.js"          # Hono/Express
+Grep "fastify\.\w+\(['\"]/" glob="*.ts,*.js"       # Fastify
+Grep "\.procedure\.\w+\(" glob="*.ts"               # tRPC
 # クライアント側の API 呼び出し
 Grep "fetch\(['\"]|ofetch\(['\"]|\$fetch\(['\"]|axios\.\w+\(['\"]" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
 # → サーバーにないパスをクライアントが呼んでいる

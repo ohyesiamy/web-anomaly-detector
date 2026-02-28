@@ -11,12 +11,13 @@ QAP 17パラメーターの数値計算のみを実行し、Composite Score を�
 ## Usage
 
 ```bash
-/web-anomaly-detector:score [scope]
+/web-anomaly-detector:score [scope] [--verify]
 ```
 
 ### Arguments
 
 - `scope` (optional): `full` (default) / `path:src/api` (特定ディレクトリ)
+- `--verify` (optional): LM Studio (Qwen3-Coder-Next) で上位マッチを検証し adjusted QAP を算出
 
 ## Execution Flow
 
@@ -132,22 +133,27 @@ Overall = 0.40×Ghost + 0.35×Fragile + 0.25×BlindSpot
 ```markdown
 ## QAP Score: [プロジェクト名]
 
-| Category | Score | Status | Key Factors |
-|----------|-------|--------|-------------|
-| Ghost | 0.XX | STATUS | CFR=0.XX, EHD=0.XX |
-| Fragile | 0.XX | STATUS | AGC=0.XX, TCR=0.XX |
-| Blind Spot | 0.XX | STATUS | BVG=0.XX, TSI=0.XX |
-| **Overall** | **0.XX** | **STATUS** | |
+### Mode: raw / verified (Qwen3-Coder-Next)
+
+| Category | Raw | Adjusted | Status | Key Factors |
+|----------|-----|----------|--------|-------------|
+| Ghost | 0.XX | 0.XX | STATUS | CFR=0.XX, EHD=0.XX |
+| Fragile | 0.XX | 0.XX | STATUS | AGC=0.XX, TCR=0.XX |
+| Blind Spot | 0.XX | 0.XX | STATUS | BVG=0.XX, TSI=0.XX |
+| **Overall** | **0.XX** | **0.XX** | **STATUS** | |
 
 ### 個別パラメーター
-| Param | Value | Type | Status |
-|-------|-------|------|--------|
-| CFR | 0.XX | Ratio | OK/WARN/CRIT |
-| EHD | 0.XX | Ratio | OK/WARN/CRIT |
-| ... | ... | ... | ... |
+| Param | Raw | Adjusted | Conf | Type | Status |
+|-------|-----|----------|------|------|--------|
+| CFR | 0.XX | 0.XX | 0.XX | Ratio | OK/WARN/CRIT |
+| EHD | 0.XX | 0.XX | 0.XX | Ratio | OK/WARN/CRIT |
+| ... | ... | ... | ... | ... | ... |
 
 判定: >= 0.80 Healthy / 0.50-0.80 Warning / < 0.50 Critical
+Adjusted = Raw × (0.5 + 0.5 × avg_confidence) — 詳細: quantitative-parameters.md
 ```
+
+`--verify` なしの場合: Raw = Adjusted (confidence カラムは `—` 表示)
 
 ## Tool Coordination
 

@@ -1,7 +1,7 @@
 {
   "name": "web-anomaly-detector",
-  "version": "2.0.0",
-  "description": "コードの「違和感」を定量的に検出 — Ghost(動かない)/Fragile(壊れやすい)/Blind Spot(見えないリスク)を3カテゴリ×9レイヤーで体系的に発見し、17個のQAPパラメーターで数値化する",
+  "version": "3.1.0",
+  "description": "コードの「違和感」を定量的に検出し LLM で検証 — grep/glob → Qwen3-Coder-Next (LM Studio) の 2-stage pipeline で偽陽性を削減。3カテゴリ×9レイヤー、17 QAP + confidence scoring",
   "author": "ohyesiamy",
   "license": "MIT",
   "keywords": [
@@ -48,7 +48,7 @@
   ],
   "compatibility": {
     "minClaudeCodeVersion": "1.0.0",
-    "platforms": ["darwin", "linux", "win32"]
+    "platforms": ["darwin", "linux"]
   },
   "repository": {
     "type": "git",
