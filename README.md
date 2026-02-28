@@ -31,8 +31,13 @@ Web Anomaly Detector は、この「違和感」を体系的に分類し、grep/
 ## Installation
 
 ```bash
-claude install github:ohyesiamy/web-anomaly-detector
+# Clone to your Claude Code skills directory
+git clone https://github.com/ohyesiamy/web-anomaly-detector.git ~/.claude/skills/web-anomaly-detector
 ```
+
+Or manually copy the files into `~/.claude/skills/web-anomaly-detector/`.
+
+> **Note**: `claude install github:...` は将来のマーケットプレイス対応を想定した記述です。現時点では上記の手動インストールを使用してください。
 
 ## Quick Start
 

@@ -35,5 +35,5 @@
     "Implicit knowledge traps (32 patterns)",
     "Aufheben agent for parallel auto-fix"
   ],
-  "install": "claude install github:ohyesiamy/web-anomaly-detector"
+  "install": "git clone https://github.com/ohyesiamy/web-anomaly-detector.git ~/.claude/skills/web-anomaly-detector"
 }
