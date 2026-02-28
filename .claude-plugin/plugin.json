@@ -1,0 +1,55 @@
+{
+  "name": "web-anomaly-detector",
+  "version": "2.0.0",
+  "description": "コードの「違和感」を定量的に検出 — Ghost(動かない)/Fragile(壊れやすい)/Blind Spot(見えないリスク)を3カテゴリ×9レイヤーで体系的に発見し、17個のQAPパラメーターで数値化する",
+  "author": "ohyesiamy",
+  "license": "MIT",
+  "keywords": [
+    "anomaly-detection",
+    "code-quality",
+    "security-audit",
+    "reliability",
+    "static-analysis",
+    "code-review"
+  ],
+  "skills": [
+    {
+      "name": "detect",
+      "description": "違和感を検出してレポートする",
+      "path": "skills/detect/SKILL.md"
+    }
+  ],
+  "agents": [
+    {
+      "name": "aufheben",
+      "description": "違和感検出→分類→並列修正→検証の一気通貫パイプライン",
+      "path": "agents/aufheben.md"
+    }
+  ],
+  "hooks": {
+    "PostToolUse:Edit": {
+      "description": "ファイル編集後に L2 (サイレント失敗) と L7 (セキュリティ) を軽量パッシブ検出",
+      "command": "bash hooks/passive-detect.sh"
+    }
+  },
+  "commands": [
+    {
+      "name": "scan",
+      "description": "プロジェクト全体をスキャンしてレポートを生成",
+      "path": "commands/scan.md"
+    },
+    {
+      "name": "score",
+      "description": "QAPスコアのみを計算して表示",
+      "path": "commands/score.md"
+    }
+  ],
+  "compatibility": {
+    "minClaudeCodeVersion": "1.0.0",
+    "platforms": ["darwin", "linux", "win32"]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ohyesiamy/web-anomaly-detector"
+  }
+}

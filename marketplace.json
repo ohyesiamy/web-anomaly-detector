@@ -1,0 +1,39 @@
+{
+  "name": "web-anomaly-detector",
+  "display_name": "Web Anomaly Detector",
+  "version": "2.0.0",
+  "description": "Detect code anomalies quantitatively — Ghost (broken), Fragile (breakable), Blind Spot (invisible risks) across 9 layers with 17 measurable parameters",
+  "description_ja": "コードの「違和感」を定量的に検出 — Ghost/Fragile/Blind Spot を9レイヤーで体系的に発見し、QAPパラメーターで数値化",
+  "author": {
+    "name": "ohyesiamy",
+    "url": "https://github.com/ohyesiamy"
+  },
+  "repository": "https://github.com/ohyesiamy/web-anomaly-detector",
+  "license": "MIT",
+  "categories": [
+    "code-quality",
+    "security",
+    "reliability",
+    "static-analysis"
+  ],
+  "tags": [
+    "anomaly-detection",
+    "code-review",
+    "owasp",
+    "sre",
+    "defect-prediction",
+    "quantitative-analysis"
+  ],
+  "features": [
+    "3-category classification (Ghost/Fragile/Blind Spot)",
+    "9-layer detection framework (L1-L9)",
+    "17 quantitative anomaly parameters (QAP)",
+    "Composite scoring with adaptive thresholds",
+    "Framework-agnostic (Vue, React, Svelte, Angular, Express, etc.)",
+    "OWASP Top 10 2025 security patterns (42 patterns)",
+    "SRE reliability patterns (28 patterns)",
+    "Implicit knowledge traps (32 patterns)",
+    "Aufheben agent for parallel auto-fix"
+  ],
+  "install": "claude install github:ohyesiamy/web-anomaly-detector"
+}
