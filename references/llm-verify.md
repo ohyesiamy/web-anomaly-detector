@@ -44,6 +44,8 @@ TRIAGE (confidence-aware scoring)
 
 `hooks/lm-studio-ensure.sh` がサーバー起動からモデルロードまでを自動化する。
 
+**環境変数**: `LMS_PATH` で `lms` CLI のパスを上書き可能 (デフォルト: `$HOME/.lmstudio/bin/lms`)。
+
 ```bash
 # scan.md の Step 3a で呼び出し
 MODEL_INFO=$(bash hooks/lm-studio-ensure.sh)

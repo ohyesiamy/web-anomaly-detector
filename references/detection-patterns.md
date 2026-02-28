@@ -327,3 +327,145 @@ Grep "import.*from ['\"]moment['\"]" glob="*.ts,*.js"        # moment (重い)
 Grep "import \* as" glob="*.ts,*.js"                         # namespace import
 # → lodash/get, date-fns 等の tree-shakeable 代替を使うべき
 ```
+
+---
+
+## L10: UI Responsiveness (UI応答性)
+
+Action→Feedback 断絶の検出。ユーザーが操作しても UI が変わらない状態。
+
+### 検出 Tier
+
+実世界テスト (kenchiku: Nuxt 4 + Nuxt UI v3) の結果に基づく分類:
+
+| Tier | 意味 | 実行方法 | パターン |
+|------|------|---------|---------|
+| **A** | grep 単体で高精度検出 | grep → 直接レポート | P10.1-P10.4, P10.9 |
+| **B** | grep で候補抽出 → LLM 検証必須 | grep → LLM verify | P10.5, P10.7, P10.8 |
+| **C** | grep 不適格 → LLM 検証フェーズ専用 | LLM のみ | P10.6, P10.10 |
+
+**フレームワーク検出**: scan 開始時に `package.json` から UI ライブラリを特定する。
+```bash
+# フレームワーク検出
+Grep "@nuxt/ui|radix-vue|headless-ui|@headlessui|@chakra-ui" glob="package.json"
+# → 検出されたライブラリが内部処理するパターンを Tier B→C に降格
+# 例: Nuxt UI 検出 → P10.6 (disabled), P10.8 (focus-trap) は内部処理済み
+```
+
+### P10.1: Action-Feedback 断絶 `[Tier A]`
+アクションハンドラに状態更新・フィードバック UI がないケース。
+```bash
+# アクションハンドラ (マルチフレームワーク)
+Grep "onClick=\{|@click=\"|on:click=\{|\(click\)=\"" glob="*.vue,*.jsx,*.tsx,*.svelte,*.html"
+Grep "onSubmit=\{|@submit=\"|on:submit=\{" glob="*.vue,*.jsx,*.tsx,*.svelte"
+# 同一コンポーネント内の状態更新
+Grep "setState|set[A-Z]|\.value\s*=|store\.\w+\s*=|\$patch|commit\(" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
+# → ハンドラ定義数 vs 状態更新数の比率 = ARR の一部
+```
+
+### P10.2: Mutation-Revalidation 欠如 `[Tier A]`
+POST/PUT/DELETE 後にデータ再取得がないケース。
+```bash
+# Mutation 呼び出し (マルチフレームワーク)
+Grep "method:\s*['\"]POST|method:\s*['\"]PUT|method:\s*['\"]DELETE" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
+Grep "\$fetch\(.*method|useFetch\(.*method|fetch\(.*method" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
+# Revalidation / Invalidation
+Grep "invalidateQueries|refetchQueries|refreshNuxtData|clearNuxtData|revalidatePath|mutate\(" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
+Grep "router\.refresh\(\)|await refresh\(\)" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
+# → mutation 数 vs revalidation 数の比率
+```
+
+### P10.3: Loading/Error UI 欠如 `[Tier A]`
+非同期操作に loading/error 表示がないケース。
+```bash
+# 非同期データフェッチ (マルチフレームワーク)
+Grep "useQuery|useSWR|useAsyncData|useFetch|useLazyFetch" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
+Grep "useQuery" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
+# Loading/Error 状態参照
+Grep "isLoading|isPending|isFetching|status.*loading|pending\.value" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
+Grep "isError|error\.value|status.*error|fetchError" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
+# → async 操作数 vs loading/error 参照数の比率
+```
+
+### P10.4: Optimistic Rollback 欠如 `[Tier A]`
+楽観的更新に失敗時ロールバックがないケース。
+```bash
+# Optimistic update (React Query / TanStack)
+Grep "onMutate|optimisticUpdate|optimistic" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
+# Rollback on error
+Grep "onError.*context|onError.*rollback|onError.*previous" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
+# → onMutate 数 vs onError rollback 数の比率 (該当なしなら N/A)
+```
+
+### P10.5: 空状態の写像欠落 [Tractatus: T3] `[Tier B]`
+データリスト表示に空状態のハンドリングがないケース。
+```bash
+# リスト/配列レンダリング (マルチフレームワーク)
+Grep "v-for=|\.map\(|{#each|ngFor" glob="*.vue,*.jsx,*.tsx,*.svelte,*.html"
+# 空状態チェック
+Grep "v-if.*length|\.length\s*===?\s*0|isEmpty|no-data|empty-state" glob="*.vue,*.jsx,*.tsx,*.svelte"
+# → リスト描画数 vs 空状態チェック数の比率
+
+# ⚠ 除外フィルタ (偽陽性削減):
+# Skeleton/Placeholder コンポーネントの v-for は空状態不要 (ローディング表現)
+# → USkeleton, Skeleton, Placeholder を含む行は候補から除外
+# 実測: フィルタなし精度 25% → フィルタあり精度 75%+ (kenchiku プロジェクト)
+```
+
+### P10.6: disabled+clickable 矛盾 [Tractatus: T4] `[Tier C — LLM専用]`
+disabled 属性と click ハンドラが同一要素に共存するケース。
+```bash
+# disabled 属性を持つ要素
+Grep "disabled.*@click|disabled.*onClick|:disabled.*@click" glob="*.vue,*.jsx,*.tsx,*.svelte"
+Grep "aria-disabled.*onClick|aria-disabled.*@click" glob="*.vue,*.jsx,*.tsx,*.svelte"
+# → 共存パターンの存在検出 (Presence)
+
+# ⚠ Tier C 理由: Nuxt UI, Radix UI, Headless UI 等の主要フレームワークは
+# disabled 属性設定時に内部的に click イベントを無効化する。
+# 実測: kenchiku (Nuxt UI v3) で 100% 偽陽性。
+# → grep ではなく LLM 検証フェーズで「カスタム要素にのみ」チェック。
+```
+
+### P10.7: 偽アフォーダンス [Cognitive: C1] `[Tier B]`
+クリックできないのにクリックできるように見える要素。
+```bash
+# cursor:pointer を持つ非インタラクティブ要素
+Grep "cursor:\s*pointer" glob="*.css,*.scss,*.vue,*.jsx,*.tsx"
+# span/div に cursor:pointer だが onClick/href がない
+# → CSS cursor:pointer 数 vs interactive handler 数の比率
+```
+
+### P10.8: フォーカス管理欠如 [Cognitive: C4] `[Tier B]`
+モーダル/ダイアログにフォーカストラップがないケース。
+**注意**: Nuxt UI (UModal), Radix UI, Headless UI は内部で focus-trap を実装。
+フレームワーク検出で該当ライブラリが見つかった場合、フレームワークコンポーネント
+使用箇所は候補から除外し、カスタム実装のみを検査する。
+```bash
+# ダイアログ/モーダルコンポーネント
+Grep "dialog|modal|drawer|sheet|popover" glob="*.vue,*.jsx,*.tsx,*.svelte" -i
+# フォーカス管理
+Grep "focus-trap|FocusTrap|useFocusTrap|trapFocus|createFocusTrap|inert" glob="*.vue,*.jsx,*.tsx,*.ts,*.js"
+# → dialog 数 vs focus-trap 数の比率
+```
+
+### P10.9: 破壊的操作の保護欠如 [Behavioral: B3] `[Tier A]`
+削除・解除などの不可逆操作に確認がないケース。
+**実測**: kenchiku プロジェクトで実バグ発見 (removeNodeByIndex, removeOption, emit('delete')
+が既存 ConfirmDialog.vue を使用していない)。L10 で最も信頼性の高いパターン。
+```bash
+# 破壊的操作ハンドラ
+Grep "delete|remove|destroy|revoke|unsubscribe|cancel.*subscription" glob="*.vue,*.jsx,*.tsx,*.ts,*.js" -i
+# 確認ダイアログ
+Grep "confirm\(|AlertDialog|ConfirmDialog|useConfirm|window\.confirm" glob="*.vue,*.jsx,*.tsx,*.ts,*.js"
+# → 破壊的操作数 vs 確認ダイアログ数の比率
+```
+
+### P10.10: 操作的デフォルト [Behavioral: B2] `[Tier C — LLM専用]`
+マーケティング同意等がデフォルトでチェック済みのケース。
+```bash
+# デフォルトチェック済み
+Grep "defaultChecked|:checked=\"true\"|checked=\"checked\"|v-model.*=.*true" glob="*.vue,*.jsx,*.tsx,*.html"
+# 文脈キーワード (consent, marketing, newsletter, notification)
+Grep "newsletter|marketing|consent|subscribe|notification" glob="*.vue,*.jsx,*.tsx,*.html" -i
+# → defaultChecked + marketing系キーワード共存 (Presence)
+```

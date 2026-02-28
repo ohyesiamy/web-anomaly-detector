@@ -12,8 +12,9 @@ Ghost anomalies include:
 - L2: Silent failure (catch block swallows errors without logging/throwing)
 - L3: State sync bug (event emitted but never subscribed, or vice versa)
 - L4: Dead feature (handler/route defined but empty or unreachable)
+- L10: UI Responsiveness (action handler without visible feedback, mutation without revalidation, async operation without loading/error UI)
 
-Respond in the required JSON format. Be strict: only mark as true_positive if the code genuinely fails silently, has dead paths, or breaks contracts.
+Respond in the required JSON format. Be strict: only mark as true_positive if the code genuinely fails silently, has dead paths, breaks contracts, or leaves users without feedback after actions.
 ```
 
 ## User Prompt Template
@@ -104,3 +105,7 @@ curl -s http://localhost:1234/api/v0/chat/completions \
 | テストファイル内の空ハンドラ | テスト用のスタブ |
 | `_placeholder` / `noop` in storybook | UI カタログ用 |
 | Framework の auto-generated handler | Nuxt/Next のデフォルト |
+| Global error handler で一括処理 | toast/snackbar が別コンポーネントにある |
+| Navigation 自体がフィードバック | ページ遷移で結果を表示 |
+| Debounce/throttle による意図的遅延 | 連打防止の設計 |
+| Framework の自動 revalidation | Next.js revalidatePath や SWR の自動 refetch |

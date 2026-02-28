@@ -93,6 +93,32 @@ UI イベントハンドラの実装率。
   ```
 - **Threshold**: >= 0.9 Normal / 0.7-0.9 WARNING / < 0.7 CRITICAL
 
+### G6: Action-Response Rate (ARR)
+ユーザー操作に対する UI 応答率。Action→Feedback 断絶を検出。
+- **Type**: Ratio
+- **Formula**: `actions_with_visible_response / total_interactive_actions`
+- **Sub-components**:
+  ```
+  0.40 × revalidation_rate   (mutation 後のデータ再取得率)
+  0.30 × feedback_rate       (loading/success/error 表示率)
+  0.30 × rollback_rate       (optimistic update の復旧率、該当なしなら N/A → 再配分)
+  ```
+- **Measurement**:
+  ```bash
+  # Action handlers (multi-framework)
+  Grep "onClick|@click|on:click|\(click\)|onSubmit|@submit" glob="*.vue,*.jsx,*.tsx,*.svelte"
+  # State change in same component
+  Grep "setState|set[A-Z]|\.value\s*=|store\.\w+|commit\(|\$patch" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
+  # Loading/feedback UI
+  Grep "isLoading|isPending|isFetching|pending\.value|disabled" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
+  # Mutation vs revalidation
+  Grep "method:\s*['\"]POST|method:\s*['\"]PUT|method:\s*['\"]DELETE" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
+  Grep "invalidateQueries|refreshNuxtData|revalidatePath|mutate\(" glob="*.ts,*.js,*.vue,*.jsx,*.tsx"
+  ```
+- **Threshold**: >= 0.85 Normal / 0.60-0.85 WARNING / < 0.60 CRITICAL
+- **Evidence**: ユーザー体験の直接的指標。操作後の無反応はユーザー離脱の主因
+- **Detection detail**: `references/detection-patterns.md` L10
+
 ---
 
 ## Fragile Parameters (L5-L8: 壊れやすいもの)
@@ -314,11 +340,14 @@ API エンドポイントの認証保護率。
 
 ### Ghost Score (動作確実性)
 ```
-Ghost = 0.30 × CFR
-      + 0.30 × EHD
-      + 0.15 × ESR
-      + 0.15 × HLR
+Ghost = 0.25 × CFR
+      + 0.25 × EHD
+      + 0.10 × ESR
+      + 0.15 × ARR
+      + 0.10 × HLR
       + 0.10 × RRR
+      + 0.05 × (reserve)
+# reserve: 将来パラメーター追加枠。当面は N/A → 残存パラメーターに再配分
 ```
 
 ### Fragile Score (耐障害性)
@@ -344,11 +373,8 @@ BlindSpot = 0.25 × (1-TSI)        # staleness の逆
 ### Overall Anomaly Score (OAS)
 ```
 OAS = 0.40 × Ghost + 0.35 × Fragile + 0.25 × BlindSpot
-# Weight rationale:
-# Ghost 0.40 — 動作しないコードは最も致命的 (ユーザー影響直結)
-# Fragile 0.35 — 壊れやすさは本番障害の主因 (CrowdStrike等)
-# BlindSpot 0.25 — 潜在リスクは長期的だが即座の影響は少ない
 ```
+Ghost が最重 (0.40) — 動作しないコードが最も致命的。
 
 | Score Range | Status | Action |
 |-------------|--------|--------|
@@ -360,34 +386,18 @@ OAS = 0.40 × Ghost + 0.35 × Fragile + 0.25 × BlindSpot
 
 ## 適応的閾値
 
-CK metrics 研究の知見: 普遍的閾値は存在しない。プロジェクト文脈に応じて調整する。
-
-| Context | Adjustment | Rationale |
-|---------|-----------|-----------|
-| Prototype / MVP | WARNING 閾値を 20% 緩和 | 速度優先、後で改善 |
-| Production | 標準閾値を使用 | バランス |
-| Financial / Medical | WARNING 閾値を 15% 厳格化 | 規制・安全要件 |
-
-### 適応的 OAS 閾値
 | Context | Healthy | Warning | Critical |
 |---------|---------|---------|----------|
 | MVP/Prototype | >= 0.65 | 0.35-0.65 | < 0.35 |
 | Production | >= 0.80 | 0.50-0.80 | < 0.50 |
 | Financial/Medical | >= 0.85 | 0.55-0.85 | < 0.55 |
-| Monolith | CSS 閾値を緩和 | config 集中は許容 |
-| Microservices | TCR/RPC/GSS 閾値を厳格化 | resilience 必須 |
-| Static site / SSG | L3/L8 をスキップ | リアルタイム・SRE 不要 |
+
+アーキテクチャ調整: Microservices → TCR/RPC/GSS 厳格化, SSG → L3/L8 スキップ
 
 ### 適用例
 ```
-Production Microservices:
-  TCR threshold: >= 0.95 Normal (標準 0.9 から厳格化)
-  RPC threshold: >= 0.6 Normal (標準 0.5 から厳格化)
-  GSS threshold: 1.0 必須 (標準 WARNING -> CRITICAL に昇格)
-
-MVP/Prototype:
-  AGC threshold: >= 0.76 Normal (標準 0.95 から緩和)
-  EHD threshold: >= 0.64 Normal (標準 0.8 から緩和)
+Production Microservices: TCR >= 0.95, RPC >= 0.6, GSS 必須 (厳格化)
+MVP/Prototype: AGC >= 0.76, EHD >= 0.64 (緩和)
 ```
 
 ---
@@ -436,31 +446,43 @@ For QAP parameter P (e.g., EHD):
 バッチ上限超過で LLM 検証されなかったマッチ: `confidence = 0.5`
 → `(0.5 + 0.5 × 0.5) = 0.75` → QAP の 75% が保持される。
 
+### N/A Weight Redistribution
+
+分母が 0 (計測不能) の QAP パラメーターは、スコア算出から除外し、
+その重みを同一カテゴリ内の残存パラメーターへ **比例配分** する。
+
+```
+For category C with parameters [P1, P2, ..., Pn] and weights [w1, w2, ..., wn]:
+
+  measurable = {Pi | denominator(Pi) > 0}
+  skipped    = {Pi | denominator(Pi) == 0}
+
+  if |measurable| == 0:
+    C_score = N/A  # カテゴリ全体が計測不能 → レポートに "N/A" と明記
+
+  else:
+    total_skipped_weight = sum(wi for Pi in skipped)
+    redistribution_factor = 1 / (1 - total_skipped_weight)
+
+    C_score = sum(wi × redistribution_factor × value(Pi) for Pi in measurable)
+```
+
+**例: Ghost Score で ESR (w=0.10), reserve (w=0.05) が N/A の場合**
+```
+残存: CFR(0.25), EHD(0.25), ARR(0.15), HLR(0.10), RRR(0.10)  →  合計 0.85
+redistribution_factor = 1 / (1 - 0.15) = 1.176
+Ghost = 0.294×CFR + 0.294×EHD + 0.176×ARR + 0.118×HLR + 0.118×RRR  →  合計 1.000 ✓
+```
+
+**レポート表記**: N/A パラメーターは `—` 表示し、注釈に理由を記載。
+
 ### Adjusted Composite Scores
 
-Composite Score 算出時は `adjusted_QAP` を使用:
-```
-Ghost_adj    = formula(adjusted_CFR, adjusted_EHD, ...)
-Fragile_adj  = formula(adjusted_NCI, adjusted_CSS, ...)
-BlindSpot_adj = formula(adjusted_TSI, adjusted_ITCR, ...)
-OAS_adj = 0.40 × Ghost_adj + 0.35 × Fragile_adj + 0.25 × BlindSpot_adj
-```
-
-### grep-only Mode
-
-`--grep-only` フラグ時は `adjusted = raw` (v2.0 同等動作)。
+Composite Score 算出時は `adjusted_QAP` を使用。`--grep-only` 時は `adjusted = raw`。
 
 ### Model Specification
 
-| Setting | Value |
-|---------|-------|
-| Model | Qwen3-Coder-Next (80B/3B MoE) |
-| Format | MLX 8bit (M3 Ultra) |
-| API | LM Studio `/api/v0/chat/completions` |
-| Temperature | 0.1 |
-| Response | `json_schema` (構造化出力) |
-
-詳細: `references/llm-verify.md`
+詳細: `references/llm-verify.md` (Qwen3-Coder-Next, LM Studio API, temperature 0.1, json_schema)
 
 ---
 
@@ -468,12 +490,9 @@ OAS_adj = 0.40 × Ghost_adj + 0.35 × Fragile_adj + 0.25 × BlindSpot_adj
 
 | Source | Contribution |
 |--------|-------------|
-| CK Metrics (Chidamber & Kemerer 1994) | CBO/WMC/RFC の閾値基準 |
-| Shannon Entropy (2025 Springer) | 情報理論によるコード異常検出 60%+ precision |
-| JIT Defect Prediction (2024-2025) | プロセスメトリクスの優位性確認 |
-| OWASP Top 10 2025 | セキュリティ閾値の根拠 |
+| CK Metrics (1994) | CBO/WMC/RFC 閾値基準 |
+| Shannon Entropy (2025) | 情報理論ベース異常検出 60%+ precision |
+| OWASP Top 10 (2025) | セキュリティ閾値根拠 |
 | Google SRE (2024) | 信頼性パターンの重大度根拠 |
-| Eclipse CK Study | CBO=9, RFC=40, WMC=20 の実測値 |
 
-**Key insight**: 固定閾値より適応的閾値が効果的。
-文脈 (プロジェクト段階 × アーキテクチャ × 業界) に応じた調整が検出精度を最大化する。
+適応的閾値が固定閾値より効果的。文脈に応じた調整が検出精度を最大化する。

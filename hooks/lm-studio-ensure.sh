@@ -50,7 +50,7 @@ if echo "$SERVER_STATUS" | grep -q "running"; then
   log "Server already running"
 else
   log "Starting LM Studio server..."
-  "$LMS" server start 2>&1 >/dev/null &
+  "$LMS" server start >/dev/null 2>&1 &
 
   # Wait for server readiness
   ELAPSED=0
@@ -77,10 +77,14 @@ if echo "$LOADED" | grep -qi "qwen3-coder-next"; then
   # Retrieve model ID from API
   MODEL_ID=$(curl -s --connect-timeout "$HEALTH_CHECK_TIMEOUT" \
     "${API_BASE}/api/v0/models" 2>/dev/null \
-    | jq -r '.data[] | select(.id | test("qwen3.*coder.*next"; "i")) | .id' 2>/dev/null \
-    | head -1)
+    | jq -r '.data[] | select(.id | test("qwen3.*coder.*next"; "i")) | .id' 2>&1 \
+    | { grep -v '^$' || true; } | head -1)
+  # jq パースエラー時はログ出力 (サイレント抑制しない)
+  if [ -z "$MODEL_ID" ] || [ "$MODEL_ID" = "null" ]; then
+    log "Warning: could not parse model ID from API response"
+  fi
 
-  if [ -n "$MODEL_ID" ] && [ "$MODEL_ID" != "null" ]; then
+  if [ -n "$MODEL_ID" ] && [ "$MODEL_ID" != "null" ] && ! echo "$MODEL_ID" | grep -q "^jq:"; then
     echo "READY:${MODEL_ID}"
   else
     echo "READY:${MODEL_IDENTIFIER}"

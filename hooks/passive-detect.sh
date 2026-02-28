@@ -24,10 +24,10 @@ NEW_STRING=$(printf '%s' "$STDIN_JSON" | jq -r '.tool_input.new_string // empty'
 # ファイルパスが空なら終了
 [ -z "$FILE_PATH" ] && exit 0
 
-# 対象拡張子のフィルタ (.ts, .js, .vue, .tsx, .jsx, .py, .go, .rs)
+# 対象拡張子のフィルタ (スタック非依存: Web/Backend/Systems)
 EXT="${FILE_PATH##*.}"
 case "$EXT" in
-  ts|js|vue|tsx|jsx|py|go|rs) ;;
+  ts|js|vue|tsx|jsx|svelte|html|py|go|rs|rb|java|kt|php) ;;
   *) exit 0 ;;
 esac
 
@@ -35,9 +35,18 @@ WARNINGS=""
 
 # --- L2: サイレント失敗チェック ---
 
-# 空 catch ブロック検出 (JS/TS)
+# 空 catch ブロック検出 (JS/TS) — single-line
 if printf '%s' "$NEW_STRING" | grep -qE 'catch\s*\([^)]*\)\s*\{\s*\}'; then
   WARNINGS="${WARNINGS}[L2] Empty catch block detected — errors will be silently swallowed\n"
+fi
+
+# 空 catch ブロック検出 (JS/TS) — multi-line: catch(...) { のみで次行に処理なし
+if printf '%s' "$NEW_STRING" | grep -qE 'catch\s*\([^)]*\)\s*\{\s*$'; then
+  # catch 開始行を検出 → 後続行が } のみ (空白除く) なら空 catch
+  CATCH_BODY=$(printf '%s' "$NEW_STRING" | sed -n '/catch\s*([^)]*)\s*{\s*$/,/}/p' | sed '1d;$d' | tr -d '[:space:]')
+  if [ -z "$CATCH_BODY" ]; then
+    WARNINGS="${WARNINGS}[L2] Multi-line empty catch block detected — errors will be silently swallowed\n"
+  fi
 fi
 
 # .catch(() => {}) パターン
