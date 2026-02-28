@@ -3,7 +3,7 @@
   "version": "3.2.0",
   "description": "コードの「違和感」を定量的に検出し LLM で検証 — grep/glob → Qwen3-Coder-Next (LM Studio) の 2-stage pipeline で偽陽性を削減。サーバー+モデル自動ロード、3カテゴリ×9レイヤー、17 QAP + confidence scoring",
   "author": "ohyesiamy",
-  "license": "MIT",
+  "license": "SACL-1.0",
   "keywords": [
     "anomaly-detection",
     "code-quality",

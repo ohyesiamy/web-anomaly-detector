@@ -8,7 +8,7 @@
 
 [![Version](https://img.shields.io/badge/version-3.2.0-8b5cf6?style=for-the-badge)](https://github.com/ohyesiamy/web-anomaly-detector/releases)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Skill-3b82f6?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.ai/code)
-[![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/license-SACL--1.0-22c55e?style=for-the-badge)](LICENSE)
 [![Patterns](https://img.shields.io/badge/patterns-130-f97316?style=for-the-badge)]()
 [![QAP](https://img.shields.io/badge/parameters-17-ef4444?style=for-the-badge)]()
 
@@ -1041,7 +1041,7 @@ web-anomaly-detector/
 
 <div align="center">
 
-<sub>MIT License</sub>
+<sub>Source Available Commercial License (SACL-1.0) — Personal use free / Commercial use requires license</sub>
 
 <sub>語りえぬものを、数えられるものに変換する。</sub>
 

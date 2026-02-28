@@ -9,7 +9,7 @@
     "url": "https://github.com/ohyesiamy"
   },
   "repository": "https://github.com/ohyesiamy/web-anomaly-detector",
-  "license": "MIT",
+  "license": "SACL-1.0",
   "categories": [
     "code-quality",
     "security",
