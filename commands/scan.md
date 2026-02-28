@@ -81,17 +81,23 @@ Agent C (Blind Spot — L9):
 **条件**: `--grep-only` 未指定かつ LM Studio が利用可能な場合のみ実行。
 **参照**: `references/llm-verify.md` (完全仕様)
 
-#### 3a. LM Studio ヘルスチェック
+#### 3a. LM Studio 自動準備
 
 ```bash
-# Bash ツールで実行
-HEALTH=$(curl -s --connect-timeout 3 http://localhost:1234/api/v0/models 2>/dev/null)
-# → "LM_READY:$MODEL_ID" / "LM_STUDIO_UNAVAILABLE" / "MODEL_NOT_LOADED"
+# Bash ツールで実行 — サーバー起動 + モデルロードを自動化
+SKILL_DIR=$(dirname "$(dirname "$0")")  # hooks/ の親ディレクトリ
+MODEL_INFO=$(bash "${SKILL_DIR}/hooks/lm-studio-ensure.sh")
+
+case "$MODEL_INFO" in
+  READY:*)   MODEL_ID="${MODEL_INFO#READY:}" ;;
+  *)         # grep-only fallback
+             echo "⚠ LM Studio 準備失敗 (${MODEL_INFO})。grep-only モードで実行"
+             ;;
+esac
 ```
 
-- `LM_STUDIO_UNAVAILABLE` → `⚠ LM Studio 未検出。grep-only モードで実行` と表示し、Step 4 へ
-- `MODEL_NOT_LOADED` → `⚠ Qwen3-Coder 未ロード。grep-only モードで実行` と表示し、Step 4 へ
-- `LM_READY` → Step 3b へ
+- `UNAVAILABLE:*` → grep-only モードで Step 4 へ (自動フォールバック)
+- `READY:<model_id>` → Step 3b へ (LLM 検証モード)
 
 #### 3b. マッチ優先度ソート
 

@@ -121,7 +121,7 @@ Claude Code に話しかけるだけ:
 
 ---
 
-## パイプライン (v3.1)
+## パイプライン (v3.2)
 
 ```
   ┌─────────┐     ┌──────────┐     ┌───────────┐     ┌─────────┐     ┌────────┐
@@ -131,20 +131,44 @@ Claude Code に話しかけるだけ:
   │ ・全体   │     │ grep/glob│     │ Qwen3     │     │ 分類     │     │ 表付き  │
   │ ・差分   │     │ 並列計測  │     │ 偽陽性除去│     │ C/W/I   │     │ 出力    │
   │ ・パス   │     │          │     │ confidence│     │         │     │        │
-  └─────────┘     └──────────┘     └───────────┘     └─────────┘     └────────┘
+  └─────────┘     └──────────┘     └─────┬─────┘     └─────────┘     └────────┘
                                          │
-                                    LM Studio 未起動時
-                                    自動フォールバック
+                                  lm-studio-ensure.sh
+                                  ┌──────┴──────┐
+                                  │ サーバー起動  │
+                                  │ モデルロード  │
+                                  │ ヘルスチェック│
+                                  └──────┬──────┘
+                                         │
+                                    未起動/失敗時
                                     → grep-only mode
 ```
 
-### v3.0 からの進化
+### v3.2: LM Studio 完全自動化
 
-| | v2.0 | v3.1 |
+`lm-studio-ensure.sh` がサーバー起動 → モデルロード → ヘルスチェックを全自動で実行。
+手動で LM Studio を操作する必要はない。
+
+```
+  lm-studio-ensure.sh の処理フロー:
+
+  lms CLI 存在？ ─── No ──▶ UNAVAILABLE (grep-only)
+       │ Yes
+  サーバー起動？ ─── No ──▶ lms server start + 15s 待機
+       │ Yes
+  モデルロード？ ─── No ──▶ lms load qwen/qwen3-coder-next --gpu max
+       │ Yes
+  READY:model_id ──────────▶ LLM 検証モード
+```
+
+### バージョン比較
+
+| | v2.0 | v3.2 |
 |---|---|---|
 | 検出 | grep/glob のみ | grep/glob → **LLM 検証** |
 | 偽陽性 | そのまま出力 | confidence score で除去 |
 | スコア | raw QAP | **adjusted QAP** |
+| LM Studio | — | **自動起動 + 自動ロード** |
 | フック | **動作せず** (環境変数前提) | **stdin JSON 対応** (修正済) |
 | 後方互換 | — | `--grep-only` で v2.0 同等 |
 
@@ -435,7 +459,8 @@ web-anomaly-detector/
 │   ├── scan.md                     # /scan コマンド
 │   └── score.md                    # /score コマンド
 ├── hooks/
-│   └── passive-detect.sh           # パッシブ検出フック
+│   ├── passive-detect.sh           # パッシブ検出フック
+│   └── lm-studio-ensure.sh        # LM Studio 自動起動+モデルロード
 └── references/
     ├── quantitative-parameters.md  # 17 QAP 定義・公式・閾値
     ├── detection-patterns.md       # L1-L6 grep/glob クエリ集

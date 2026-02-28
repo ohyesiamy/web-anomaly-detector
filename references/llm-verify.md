@@ -26,7 +26,7 @@ TRIAGE (confidence-aware scoring)
 |---------|-------|-----------|
 | **Model** | Qwen3-Coder-Next | 80B/3B MoE, SWE-bench 70.6%, 358言語対応 |
 | **Format** | MLX 8bit | M3 Ultra 512GB に最適。GGUF Q8_0 も可 |
-| **LM Studio ID** | `lmstudio-community/Qwen3-Coder-Next-MLX-8bit` | LM Studio 検索名 |
+| **LM Studio ID** | `qwen/qwen3-coder-next` | `lms load` パス / API model ID |
 | **Context** | 256K tokens (native) | 十分すぎるほどのコンテキスト |
 | **Temperature** | 0.1 | 判定の一貫性重視。創造性は不要 |
 | **Max Tokens** | 256 | JSON レスポンスに十分 |
@@ -40,29 +40,38 @@ TRIAGE (confidence-aware scoring)
 
 ## LM Studio API Usage
 
-### Health Check
+### Auto-Ensure (Server + Model)
+
+`hooks/lm-studio-ensure.sh` がサーバー起動からモデルロードまでを自動化する。
 
 ```bash
-# Step 1: サーバー疎通確認 (3秒タイムアウト)
-HEALTH=$(curl -s --connect-timeout 3 http://localhost:1234/api/v0/models 2>/dev/null)
+# scan.md の Step 3a で呼び出し
+MODEL_INFO=$(bash hooks/lm-studio-ensure.sh)
 
-# Step 2: レスポンス解析
-if [ -z "$HEALTH" ]; then
-  echo "LM_STUDIO_UNAVAILABLE"  # → grep-only fallback
-  exit 0
-fi
-
-# Step 3: Qwen3-Coder-Next がロード済みか確認
-MODEL_STATE=$(echo "$HEALTH" | jq -r '.data[] | select(.id | contains("qwen3-coder")) | .state')
-if [ "$MODEL_STATE" != "loaded" ]; then
-  echo "MODEL_NOT_LOADED"  # → grep-only fallback + 警告
-  exit 0
-fi
-
-# Step 4: モデル ID を取得 (LM Studio がつける ID は環境依存)
-MODEL_ID=$(echo "$HEALTH" | jq -r '.data[] | select(.id | contains("qwen3-coder")) | .id' | head -1)
-echo "LM_READY:$MODEL_ID"
+case "$MODEL_INFO" in
+  READY:*)
+    MODEL_ID="${MODEL_INFO#READY:}"
+    # → LLM 検証モードへ
+    ;;
+  UNAVAILABLE:*)
+    REASON="${MODEL_INFO#UNAVAILABLE:}"
+    echo "⚠ LM Studio: ${REASON}。grep-only モードで実行"
+    # → grep-only fallback
+    ;;
+esac
 ```
+
+**スクリプトの処理フロー:**
+1. `lms` CLI の存在確認
+2. `lms server status` でサーバー確認 → 未起動なら `lms server start`
+3. `lms ps` でモデル確認 → 未ロードなら `lms load qwen/qwen3-coder-next --gpu max -y`
+4. API (`/api/v0/models`) でモデル ID を取得
+5. `READY:<model_id>` または `UNAVAILABLE:<reason>` を出力
+
+**UNAVAILABLE reasons:**
+- `lms_cli_not_found` — LM Studio CLI 未インストール
+- `server_start_timeout` — サーバー起動タイムアウト (15s)
+- `model_load_timeout` — モデルロードタイムアウト (120s)
 
 ### Single Match Verification
 
@@ -187,9 +196,10 @@ LLM 検証されなかったマッチ (バッチ上限超過) には `confidence
 
 | Condition | Behavior | User Message |
 |-----------|----------|-------------|
-| LM Studio 未起動 | grep-only mode | `⚠ LM Studio 未検出。grep-only モードで実行` |
-| Model 未ロード | grep-only mode | `⚠ Qwen3-Coder 未ロード。grep-only モードで実行` |
 | `--grep-only` flag | grep-only mode | `ℹ grep-only モード (LLM 検証スキップ)` |
+| `UNAVAILABLE:lms_cli_not_found` | grep-only mode | `⚠ LM Studio CLI 未検出。grep-only モードで実行` |
+| `UNAVAILABLE:server_start_timeout` | grep-only mode | `⚠ LM Studio サーバー起動失敗。grep-only モードで実行` |
+| `UNAVAILABLE:model_load_timeout` | grep-only mode | `⚠ モデルロードタイムアウト。grep-only モードで実行` |
 | LLM 途中クラッシュ | 処理済み保持 + 残りは confidence=0.5 | `⚠ LLM 検証が中断。N/M 件検証済み` |
 | JSON パース失敗 | 1回リトライ → 失敗で confidence=0.5 | (サイレント) |
 | タイムアウト (10s/match) | skip → confidence=0.5 | (サイレント) |
