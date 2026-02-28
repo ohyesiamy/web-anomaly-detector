@@ -1,9 +1,9 @@
 {
   "name": "web-anomaly-detector",
   "display_name": "Web Anomaly Detector",
-  "version": "2.0.0",
-  "description": "Detect code anomalies quantitatively — Ghost (broken), Fragile (breakable), Blind Spot (invisible risks) across 9 layers with 17 measurable parameters",
-  "description_ja": "コードの「違和感」を定量的に検出 — Ghost/Fragile/Blind Spot を9レイヤーで体系的に発見し、QAPパラメーターで数値化",
+  "version": "3.2.0",
+  "description": "Detect code anomalies quantitatively — Ghost (broken), Fragile (breakable), Blind Spot (invisible risks) across 9 layers with 17 measurable parameters + LLM verification via LM Studio",
+  "description_ja": "コードの「違和感」を定量的に検出し LLM で検証 — grep/glob → Qwen3-Coder-Next の 2-stage pipeline。3カテゴリ×9レイヤー、17 QAP + confidence scoring",
   "author": {
     "name": "ohyesiamy",
     "url": "https://github.com/ohyesiamy"
@@ -33,7 +33,10 @@
     "OWASP Top 10 2025 security patterns (42 patterns)",
     "SRE reliability patterns (28 patterns)",
     "Implicit knowledge traps (32 patterns)",
-    "Aufheben agent for parallel auto-fix"
+    "Aufheben agent for parallel auto-fix",
+    "LLM verification pipeline (Qwen3-Coder-Next via LM Studio)",
+    "LM Studio auto-ensure (server + model auto-load)",
+    "Confidence scoring with adjusted QAP"
   ],
   "install": "git clone https://github.com/ohyesiamy/web-anomaly-detector.git ~/.claude/skills/web-anomaly-detector"
 }

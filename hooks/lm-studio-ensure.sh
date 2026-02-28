@@ -14,8 +14,19 @@
 
 set -uo pipefail
 
+# --- Cleanup on exit ---
+LOAD_PID=""
+cleanup() {
+  if [ -n "$LOAD_PID" ]; then
+    kill "$LOAD_PID" 2>/dev/null || true
+    wait "$LOAD_PID" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+
 # --- Configuration ---
-LMS="${HOME}/.lmstudio/bin/lms"
+LMS="${LMS_PATH:-${HOME}/.lmstudio/bin/lms}"
 MODEL_PATH="qwen/qwen3-coder-next"
 MODEL_IDENTIFIER="qwen3-coder-next"
 API_BASE="http://localhost:1234"
